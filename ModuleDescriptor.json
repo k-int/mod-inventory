@@ -204,10 +204,7 @@
         "inventory.ingest.mods.post",
         "inventory.ingest.mods.status.get",
         "module.items.enabled",
-        "inventory-storage.material-types.item.get",
-        "inventory-storage.material-types.collection.get",
-        "inventory-storage.loan-types.item.get",
-        "inventory-storage.loan-types.collection.get"
+        "inventory-storage.all"
       ]
     }
   ]
