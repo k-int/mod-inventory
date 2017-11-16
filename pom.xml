@@ -22,6 +22,11 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.folio</groupId>
+      <artifactId>domain-models-runtime</artifactId>
+      <version>15.0.2</version>
+    </dependency>
+    <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
       <version>${vertx.version}</version>
@@ -92,6 +97,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <vertx.version>3.3.2</vertx.version>
+    <ramlfiles_path>${basedir}/ramls/</ramlfiles_path>
   </properties>
 
   <distributionManagement>
@@ -140,6 +146,77 @@
           <target>1.8</target>
           <encoding>UTF-8</encoding>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>1.5.0</version>
+        <executions>
+          <execution>
+            <id>generate_interfaces</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <mainClass>org.folio.rest.tools.GenerateRunner</mainClass>
+              <!-- <executable>java</executable> -->
+              <cleanupDaemonThreads>false</cleanupDaemonThreads>
+              <systemProperties>
+                <systemProperty>
+                  <key>project.basedir</key>
+                  <value>${basedir}</value>
+                </systemProperty>
+                <systemProperty>
+                  <key>raml_files</key>
+                  <value>${ramlfiles_path}</value>
+                </systemProperty>
+              </systemProperties>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>aspectj-maven-plugin</artifactId>
+        <version>1.9</version>
+        <configuration>
+          <verbose>true</verbose>
+          <showWeaveInfo>false</showWeaveInfo>
+          <complianceLevel>1.8</complianceLevel>
+          <includes>
+            <include>**/impl/*.java</include>
+            <include>**/*.aj</include>
+          </includes>
+          <aspectDirectory>src/main/java/org/folio/rest/annotations</aspectDirectory>
+          <XaddSerialVersionUID>true</XaddSerialVersionUID>
+          <showWeaveInfo>true</showWeaveInfo>
+          <aspectLibraries>
+            <aspectLibrary>
+              <groupId>org.folio</groupId>
+              <artifactId>domain-models-api-aspects</artifactId>
+            </aspectLibrary>
+          </aspectLibraries>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjrt</artifactId>
+            <version>1.8.9</version>
+          </dependency>
+          <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjtools</artifactId>
+            <version>1.8.9</version>
+          </dependency>
+        </dependencies>
       </plugin>
       <plugin>
         <artifactId>maven-resources-plugin</artifactId>
