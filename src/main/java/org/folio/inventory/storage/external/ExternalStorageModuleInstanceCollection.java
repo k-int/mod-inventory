@@ -3,10 +3,10 @@ package org.folio.inventory.storage.external;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.folio.inventory.domain.Creator;
-import org.folio.inventory.domain.Identifier;
-import org.folio.inventory.domain.Instance;
 import org.folio.inventory.domain.InstanceCollection;
+import org.folio.rest.jaxrs.model.Creator;
+import org.folio.rest.jaxrs.model.Identifier;
+import org.folio.rest.jaxrs.model.Instance;
 
 import java.util.List;
 import java.util.UUID;
@@ -33,15 +33,15 @@ class ExternalStorageModuleInstanceCollection
     JsonObject instanceToSend = new JsonObject();
 
     //TODO: Review if this shouldn't be defaulting here
-    instanceToSend.put("id", instance.id != null
-      ? instance.id
+    instanceToSend.put("id", instance.getId() != null
+      ? instance.getId()
       : UUID.randomUUID().toString());
 
-    instanceToSend.put("title", instance.title);
-    includeIfPresent(instanceToSend, "instanceTypeId", instance.instanceTypeId);
-    includeIfPresent(instanceToSend, "source", instance.source);
-    instanceToSend.put("identifiers", instance.identifiers);
-    instanceToSend.put("creators", instance.creators);
+    instanceToSend.put("title", instance.getTitle());
+    includeIfPresent(instanceToSend, "instanceTypeId", instance.getInstanceTypeId());
+    includeIfPresent(instanceToSend, "source", instance.getSource());
+    instanceToSend.put("identifiers", instance.getIdentifiers());
+    instanceToSend.put("creators", instance.getCreators());
 
     return instanceToSend;
   }
@@ -52,27 +52,31 @@ class ExternalStorageModuleInstanceCollection
       instanceFromServer.getJsonArray("identifiers", new JsonArray()));
 
     List<Identifier> mappedIdentifiers = identifiers.stream()
-      .map(it -> new Identifier(it.getString("identifierTypeId"), it.getString("value")))
+      .map(it -> new Identifier()
+        .withIdentifierTypeId(it.getString("identifierTypeId"))
+        .withValue(it.getString("value")))
       .collect(Collectors.toList());
 
     List<JsonObject> creators = toList(
       instanceFromServer.getJsonArray("creators", new JsonArray()));
 
     List<Creator> mappedCreators = creators.stream()
-      .map(it -> new Creator(it.getString("creatorTypeId"), it.getString("name")))
+      .map(it -> new Creator()
+        .withCreatorTypeId(it.getString("creatorTypeId"))
+        .withName(it.getString("name")))
       .collect(Collectors.toList());
 
-    return new Instance(
-      instanceFromServer.getString("id"),
-      instanceFromServer.getString("title"),
-      mappedIdentifiers,
-      instanceFromServer.getString("source"),
-      instanceFromServer.getString("instanceTypeId"),
-      mappedCreators);
+    return new Instance()
+      .withId(instanceFromServer.getString("id"))
+      .withTitle(instanceFromServer.getString("title"))
+      .withIdentifiers(mappedIdentifiers)
+      .withSource(instanceFromServer.getString("source"))
+      .withInstanceTypeId(instanceFromServer.getString("instanceTypeId"))
+      .withCreators(mappedCreators);
   }
 
   @Override
   protected String getId(Instance record) {
-    return record.id;
+    return record.getId();
   }
 }

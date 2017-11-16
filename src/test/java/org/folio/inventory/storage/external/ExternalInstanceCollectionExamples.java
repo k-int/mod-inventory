@@ -4,8 +4,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.folio.inventory.common.WaitForAllFutures;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.MultipleRecords;
-import org.folio.inventory.domain.Instance;
 import org.folio.inventory.domain.InstanceCollection;
+import org.folio.rest.jaxrs.model.Creator;
+import org.folio.rest.jaxrs.model.Identifier;
+import org.folio.rest.jaxrs.model.Instance;
 import org.hamcrest.CoreMatchers;
 import org.junit.Before;
 import org.junit.Test;
@@ -57,7 +59,8 @@ public class ExternalInstanceCollectionExamples {
 
     waitForCompletion(emptied);
 
-    CompletableFuture<MultipleRecords<Instance>> findFuture = new CompletableFuture<MultipleRecords<Instance>>();
+    CompletableFuture<MultipleRecords<Instance>> findFuture =
+      new CompletableFuture<>();
 
     collection.findAll(PagingParameters.defaults(),
       succeed(findFuture), fail(findFuture));
@@ -105,13 +108,14 @@ public class ExternalInstanceCollectionExamples {
 
     String instanceId = UUID.randomUUID().toString();
 
-    Instance instanceWithId = smallAngryPlanet().copyWithNewId(instanceId);
+    //TODO: Should copy rather than set
+    Instance instanceWithId = smallAngryPlanet().withId(instanceId);
 
     collection.add(instanceWithId, succeed(addFinished), fail(addFinished));
 
     Instance added = getOnCompletion(addFinished);
 
-    assertThat(added.id, is(instanceId));
+    assertThat(added.getId(), is(instanceId));
   }
 
   @Test
@@ -130,15 +134,15 @@ public class ExternalInstanceCollectionExamples {
     CompletableFuture<Instance> findFuture = new CompletableFuture<Instance>();
     CompletableFuture<Instance> otherFindFuture = new CompletableFuture<Instance>();
 
-    collection.findById(addedInstance.id, succeed(findFuture), fail(findFuture));
-    collection.findById(otherAddedInstance.id, succeed(otherFindFuture), fail(otherFindFuture));
+    collection.findById(addedInstance.getId(), succeed(findFuture), fail(findFuture));
+    collection.findById(otherAddedInstance.getId(), succeed(otherFindFuture), fail(otherFindFuture));
 
     Instance foundSmallAngry = getOnCompletion(findFuture);
     Instance foundNod = getOnCompletion(otherFindFuture);
 
-    assertThat(foundSmallAngry.title, is("Long Way to a Small Angry Planet"));
+    assertThat(foundSmallAngry.getTitle(), is("Long Way to a Small Angry Planet"));
 
-    assertThat(foundNod.title, is("Nod"));
+    assertThat(foundNod.getTitle(), is("Nod"));
 
     assertThat(hasIdentifier(foundSmallAngry, ISBN_IDENTIFIER_TYPE, "9781473619777"), is(true));
     assertThat(hasIdentifier(foundNod, ASIN_IDENTIFIER_TYPE, "B01D1PLMDO"), is(true));
@@ -191,13 +195,13 @@ public class ExternalInstanceCollectionExamples {
 
     CompletableFuture deleted = new CompletableFuture();
 
-    collection.delete(instanceToBeDeleted.id, succeed(deleted), fail(deleted));
+    collection.delete(instanceToBeDeleted.getId(), succeed(deleted), fail(deleted));
 
     waitForCompletion(deleted);
 
     CompletableFuture<Instance> findFuture = new CompletableFuture<Instance>();
 
-    collection.findById(instanceToBeDeleted.id, succeed(findFuture), fail(findFuture));
+    collection.findById(instanceToBeDeleted.getId(), succeed(findFuture), fail(findFuture));
 
     assertThat(findFuture.get(), is(CoreMatchers.nullValue()));
 
@@ -225,7 +229,8 @@ public class ExternalInstanceCollectionExamples {
 
     CompletableFuture<Void> updateFinished = new CompletableFuture<>();
 
-    Instance changed = added.removeIdentifier(ISBN_IDENTIFIER_TYPE, "9781473619777");
+    Instance changed = added.withIdentifiers(new ArrayList<>());
+    //.removeIdentifier(ISBN_IDENTIFIER_TYPE, "9781473619777");
 
     collection.update(changed, succeed(updateFinished), fail(updateFinished));
 
@@ -233,13 +238,13 @@ public class ExternalInstanceCollectionExamples {
 
     CompletableFuture<Instance> gotUpdated = new CompletableFuture<Instance>();
 
-    collection.findById(added.id, succeed(gotUpdated), fail(gotUpdated));
+    collection.findById(added.getId(), succeed(gotUpdated), fail(gotUpdated));
 
     Instance updated = getOnCompletion(gotUpdated);
 
-    assertThat(updated.id, is(added.id));
-    assertThat(updated.title, is(added.title));
-    assertThat(updated.identifiers.size(), is(0));
+    assertThat(updated.getId(), is(added.getId()));
+    assertThat(updated.getTitle(), is(added.getTitle()));
+    assertThat(updated.getIdentifiers().size(), is(0));
   }
 
   @Test
@@ -275,7 +280,7 @@ public class ExternalInstanceCollectionExamples {
     assertThat(findByNameResults.size(), is(1));
     assertThat(findByNameResultsWrapped.totalRecords, is(1));
 
-    assertThat(findByNameResults.get(0).id, is(addedSmallAngryPlanet.id));
+    assertThat(findByNameResults.get(0).getId(), is(addedSmallAngryPlanet.getId()));
   }
 
   private static void addSomeExamples(InstanceCollection instanceCollection)
@@ -291,41 +296,63 @@ public class ExternalInstanceCollectionExamples {
   }
 
   private static Instance nod() {
-    return createInstance("Nod")
-      .addIdentifier(ASIN_IDENTIFIER_TYPE, "B01D1PLMDO")
-      .addCreator(PERSONAL_CREATOR_TYPE, "Barnes, Adrian");
+    Instance instance = createInstance("Nod");
+
+    addIdentifier(instance, ASIN_IDENTIFIER_TYPE, "B01D1PLMDO");
+    addCreator(instance, PERSONAL_CREATOR_TYPE, "Barnes, Adrian");
+
+    return instance;
+
   }
 
   private static Instance uprooted() {
-    return createInstance("Uprooted")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "1447294149")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "9781447294146")
-      .addCreator(PERSONAL_CREATOR_TYPE, "Novik, Naomi");
+    Instance instance = createInstance("Uprooted");
+
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "1447294149");
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "9781447294146");
+    addCreator(instance, PERSONAL_CREATOR_TYPE, "Novik, Naomi");
+
+    return instance;
   }
 
   private static Instance smallAngryPlanet() {
-    return createInstance("Long Way to a Small Angry Planet")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "9781473619777")
-      .addCreator(PERSONAL_CREATOR_TYPE, "Chambers, Becky");
+    Instance instance = createInstance("Long Way to a Small Angry Planet");
+
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "9781473619777");
+    addCreator(instance, PERSONAL_CREATOR_TYPE, "Chambers, Becky");
+
+    return instance;
+
   }
 
   private static Instance temeraire() {
-    return createInstance("Temeraire")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "0007258712")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "9780007258710")
-      .addCreator(PERSONAL_CREATOR_TYPE, "Novik, Naomi");
+    Instance instance = createInstance("Temeraire");
+
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "0007258712");
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "9780007258710");
+    addCreator(instance, PERSONAL_CREATOR_TYPE, "Novik, Naomi");
+
+    return instance;
   }
 
   private static Instance interestingTimes() {
-    return createInstance("Interesting Times")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "0552167541")
-      .addIdentifier(ISBN_IDENTIFIER_TYPE, "9780552167543")
-      .addCreator(PERSONAL_CREATOR_TYPE, "Pratchett, Terry");
+    Instance instance = createInstance("Interesting Times");
+
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "0552167541");
+    addIdentifier(instance, ISBN_IDENTIFIER_TYPE, "9780552167543");
+    addCreator(instance, PERSONAL_CREATOR_TYPE, "Pratchett, Terry");
+
+    return instance;
   }
 
   private static Instance createInstance(String title) {
-    return new Instance(UUID.randomUUID().toString(), title, new ArrayList<>(),
-      "Local", BOOKS_INSTANCE_TYPE, new ArrayList<>());
+    return new Instance()
+      .withId(UUID.randomUUID().toString())
+      .withTitle(title)
+      .withIdentifiers(new ArrayList<>())
+      .withSource("Local")
+      .withInstanceTypeId(BOOKS_INSTANCE_TYPE)
+      .withCreators(new ArrayList<>());
   }
 
   private static boolean hasIdentifier(
@@ -333,14 +360,42 @@ public class ExternalInstanceCollectionExamples {
     final String identifierTypeId,
     final String value) {
 
-    return instance.identifiers.stream().anyMatch(it ->
-      StringUtils.equals(it.identifierTypeId, identifierTypeId)
-        && StringUtils.equals(it.value, value));
+    return instance.getIdentifiers().stream().anyMatch(it ->
+      StringUtils.equals(it.getIdentifierTypeId(), identifierTypeId)
+        && StringUtils.equals(it.getValue(), value));
   }
 
   private Instance getInstance(List<Instance> allInstances, final String title) {
     return allInstances.stream()
-      .filter(it -> StringUtils.equals(it.title, title))
+      .filter(it -> StringUtils.equals(it.getTitle(), title))
       .findFirst().orElse(null);
+  }
+
+  private static void addCreator(
+    Instance instance,
+    String creatorType,
+    String name) {
+
+    List<Creator> creators = instance.getCreators();
+
+    creators.add(new Creator()
+      .withCreatorTypeId(creatorType)
+      .withName(name));
+
+    instance.setCreators(creators);
+  }
+
+  private static void addIdentifier(
+    Instance instance,
+    String identifierType,
+    String value) {
+
+    List<Identifier> identifiers = instance.getIdentifiers();
+
+    identifiers.add(new Identifier()
+      .withIdentifierTypeId(identifierType)
+      .withValue(value));
+
+    instance.setIdentifiers(identifiers);
   }
 }

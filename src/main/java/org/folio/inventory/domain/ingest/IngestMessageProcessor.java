@@ -9,11 +9,17 @@ import io.vertx.core.logging.LoggerFactory;
 import org.apache.commons.lang3.StringUtils;
 import org.folio.inventory.common.CollectAll;
 import org.folio.inventory.common.MessagingContext;
-import org.folio.inventory.domain.*;
+import org.folio.inventory.domain.InstanceCollection;
+import org.folio.inventory.domain.Item;
+import org.folio.inventory.domain.ItemCollection;
+import org.folio.inventory.domain.Messages;
 import org.folio.inventory.resources.ingest.IngestJob;
 import org.folio.inventory.resources.ingest.IngestJobState;
 import org.folio.inventory.storage.Storage;
 import org.folio.inventory.support.JsonArrayHelper;
+import org.folio.rest.jaxrs.model.Creator;
+import org.folio.rest.jaxrs.model.Identifier;
+import org.folio.rest.jaxrs.model.Instance;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -66,22 +72,27 @@ public class IngestMessageProcessor {
           record.getJsonArray("identifiers"));
 
         List<Identifier> identifiers = identifiersJson.stream()
-          .map(identifier -> new Identifier(
-            identifierTypes.getString("ISBN"),
-            identifier.getString("value")))
+          .map(identifier -> new Identifier()
+            .withIdentifierTypeId(identifierTypes.getString("ISBN"))
+            .withValue(identifier.getString("value")))
           .collect(Collectors.toList());
 
         List<JsonObject> creatorsJson = JsonArrayHelper.toList(
           record.getJsonArray("creators"));
 
         List<Creator> creators = creatorsJson.stream()
-          .map(creator -> new Creator(
-            creatorTypes.getString("Personal name"),
-            creator.getString("name")))
+          .map(creator -> new Creator()
+            .withCreatorTypeId(creatorTypes.getString("Personal name"))
+            .withName(creator.getString("name")))
           .collect(Collectors.toList());
 
-        return new Instance(UUID.randomUUID().toString(), record.getString(TITLE_PROPERTY),
-          identifiers, "Local: MODS", instanceTypes.getString("Books"), creators);
+        return new Instance()
+          .withId(UUID.randomUUID().toString())
+          .withTitle(record.getString(TITLE_PROPERTY))
+          .withIdentifiers(identifiers)
+          .withSource("Local: MODS")
+          .withInstanceTypeId(instanceTypes.getString("Books"))
+          .withCreators(creators);
       })
       .forEach(instance -> instanceCollection.add(instance, allInstances.receive(),
         failure -> log.error("Instance processing failed: " + failure.getReason())));
@@ -90,11 +101,11 @@ public class IngestMessageProcessor {
         records.stream().map(record -> {
           Optional<Instance> possibleInstance = instances.stream()
             .filter(instance ->
-              StringUtils.equals(instance.title, record.getString(TITLE_PROPERTY)))
+              StringUtils.equals(instance.getTitle(), record.getString(TITLE_PROPERTY)))
             .findFirst();
 
           String instanceId = possibleInstance.isPresent()
-            ? possibleInstance.get().id
+            ? possibleInstance.get().getId()
             : null;
 
           return new Item(null,

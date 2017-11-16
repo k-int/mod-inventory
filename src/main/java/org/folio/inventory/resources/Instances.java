@@ -11,13 +11,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.folio.inventory.common.WebContext;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.MultipleRecords;
-import org.folio.inventory.domain.Creator;
-import org.folio.inventory.domain.Identifier;
-import org.folio.inventory.domain.Instance;
 import org.folio.inventory.domain.InstanceCollection;
 import org.folio.inventory.storage.Storage;
 import org.folio.inventory.support.JsonArrayHelper;
 import org.folio.inventory.support.http.server.*;
+import org.folio.rest.jaxrs.model.Creator;
+import org.folio.rest.jaxrs.model.Identifier;
+import org.folio.rest.jaxrs.model.Instance;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.invoke.MethodHandles;
@@ -118,7 +118,7 @@ public class Instances {
       success -> {
         try {
           URL url = context.absoluteUrl(String.format("%s/%s",
-            INSTANCES_PATH, success.getResult().id));
+            INSTANCES_PATH, success.getResult().getId()));
 
           RedirectResponse.created(routingContext.response(), url.toString());
         } catch (MalformedURLException e) {
@@ -214,28 +214,28 @@ public class Instances {
         String.format("Failed to create context link for instance: %s", e.toString()));
     }
 
-    representation.put("id", instance.id);
-    representation.put(TITLE_PROPERTY_NAME, instance.title);
-    representation.put("source", instance.source);
-    representation.put("instanceTypeId", instance.instanceTypeId);
+    representation.put("id", instance.getId());
+    representation.put(TITLE_PROPERTY_NAME, instance.getTitle());
+    representation.put("source", instance.getSource());
+    representation.put("instanceTypeId", instance.getInstanceTypeId());
 
     representation.put(IDENTIFIER_PROPERTY_NAME,
-      new JsonArray(instance.identifiers.stream()
+      new JsonArray(instance.getIdentifiers().stream()
         .map(identifier -> new JsonObject()
-          .put("identifierTypeId", identifier.identifierTypeId)
-          .put("value", identifier.value))
+          .put("identifierTypeId", identifier.getIdentifierTypeId())
+          .put("value", identifier.getValue()))
         .collect(Collectors.toList())));
 
     representation.put(CREATORS_PROPERTY_NAME,
-      new JsonArray(instance.creators.stream()
+      new JsonArray(instance.getCreators().stream()
         .map(creator -> new JsonObject()
-          .put("creatorTypeId", creator.creatorTypeId)
-          .put("name", creator.name))
+          .put("creatorTypeId", creator.getCreatorTypeId())
+          .put("name", creator.getName()))
         .collect(Collectors.toList())));
 
     try {
       URL selfUrl = context.absoluteUrl(String.format("%s/%s",
-        INSTANCES_PATH, instance.id));
+        INSTANCES_PATH, instance.getId()));
 
       representation.put("links", new JsonObject().put("self", selfUrl.toString()));
     } catch (MalformedURLException e) {
@@ -249,24 +249,26 @@ public class Instances {
   private Instance requestToInstance(JsonObject instanceRequest) {
     List<Identifier> identifiers = instanceRequest.containsKey(IDENTIFIER_PROPERTY_NAME)
       ? JsonArrayHelper.toList(instanceRequest.getJsonArray(IDENTIFIER_PROPERTY_NAME)).stream()
-          .map(identifier -> new Identifier(identifier.getString("identifierTypeId"),
-          identifier.getString("value")))
+          .map(identifier -> new Identifier()
+            .withIdentifierTypeId(identifier.getString("identifierTypeId"))
+            .withValue(identifier.getString("value")))
           .collect(Collectors.toList())
           : new ArrayList<>();
 
     List<Creator> creators = instanceRequest.containsKey(CREATORS_PROPERTY_NAME)
       ? JsonArrayHelper.toList(instanceRequest.getJsonArray(CREATORS_PROPERTY_NAME)).stream()
-      .map(creator -> new Creator(creator.getString("creatorTypeId"),
-        creator.getString("name")))
+      .map(creator -> new Creator()
+        .withCreatorTypeId(creator.getString("creatorTypeId"))
+        .withName(creator.getString("name")))
       .collect(Collectors.toList())
       : new ArrayList<>();
 
-    return new Instance(
-      instanceRequest.getString("id"),
-      instanceRequest.getString(TITLE_PROPERTY_NAME),
-      identifiers,
-      instanceRequest.getString("source"),
-      instanceRequest.getString("instanceTypeId"),
-      creators);
+    return new Instance()
+      .withId(instanceRequest.getString("id"))
+      .withTitle(instanceRequest.getString(TITLE_PROPERTY_NAME))
+      .withIdentifiers(identifiers)
+      .withSource(instanceRequest.getString("source"))
+      .withInstanceTypeId(instanceRequest.getString("instanceTypeId"))
+      .withCreators(creators);
   }
 }
