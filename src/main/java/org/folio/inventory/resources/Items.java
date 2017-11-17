@@ -6,17 +6,17 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
-import org.folio.inventory.storage.external.CollectionResourceClient;
 import org.folio.inventory.common.WebContext;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.inventory.common.domain.Success;
-import org.folio.inventory.domain.Item;
 import org.folio.inventory.domain.ItemCollection;
 import org.folio.inventory.storage.Storage;
+import org.folio.inventory.storage.external.CollectionResourceClient;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
 import org.folio.inventory.support.http.client.Response;
 import org.folio.inventory.support.http.server.*;
+import org.folio.rest.jaxrs.model.*;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.invoke.MethodHandles;
@@ -105,9 +105,9 @@ public class Items {
 
     ItemCollection itemCollection = storage.getItemCollection(context);
 
-    if(newItem.barcode != null) {
+    if(newItem.getBarcode() != null) {
       try {
-        itemCollection.findByCql(String.format("barcode=%s", newItem.barcode),
+        itemCollection.findByCql(String.format("barcode=%s", newItem.getBarcode()),
           PagingParameters.defaults(), findResult -> {
 
             if(findResult.getResult().records.isEmpty()) {
@@ -116,7 +116,7 @@ public class Items {
             else {
               ClientErrorResponse.badRequest(routingContext.response(),
                 String.format("Barcode must be unique, %s is already assigned to another item",
-                  newItem.barcode));
+                  newItem.getBarcode()));
             }
           }, FailureResponseConsumer.serverError(routingContext.response()));
       } catch (UnsupportedEncodingException e) {
@@ -208,19 +208,19 @@ public class Items {
           ArrayList<CompletableFuture<Response>> allFutures = new ArrayList<>();
 
           CompletableFuture<Response> materialTypeFuture = getReferenceRecord(
-            item.materialTypeId, materialTypesClient, allFutures);
+            getMaterialTypeId(item), materialTypesClient, allFutures);
 
           CompletableFuture<Response> permanentLoanTypeFuture = getReferenceRecord(
-            item.permanentLoanTypeId, loanTypesClient, allFutures);
+            getPermanentLoanTypeId(item), loanTypesClient, allFutures);
 
           CompletableFuture<Response> temporaryLoanTypeFuture = getReferenceRecord(
-            item.temporaryLoanTypeId, loanTypesClient, allFutures);
-
-          CompletableFuture<Response> temporaryLocationFuture = getReferenceRecord(
-            item.temporaryLocationId, locationsClient, allFutures);
+            getTemporaryLoanTypeId(item), loanTypesClient, allFutures);
 
           CompletableFuture<Response> permanentLocationFuture = getReferenceRecord(
-            item.permanentLocationId, locationsClient, allFutures);
+            getPermanentLocationId(item), locationsClient, allFutures);
+
+          CompletableFuture<Response> temporaryLocationFuture = getReferenceRecord(
+            getTemporaryLocationId(item), locationsClient, allFutures);
 
           CompletableFuture<Void> allDoneFuture = allOf(allFutures);
 
@@ -233,7 +233,7 @@ public class Items {
               JsonResponse.success(routingContext.response(), representation);
             } catch (Exception e) {
               ServerErrorResponse.internalError(routingContext.response(),
-                "Error creating Item Representation: " + e.getLocalizedMessage());
+                "Error creating Item Representation: " + e.toString());
             }
           });
         }
@@ -251,17 +251,17 @@ public class Items {
     String permanentLoanTypeId = getNestedProperty(itemRequest, "permanentLoanType", "id");
     String temporaryLoanTypeId = getNestedProperty(itemRequest, "temporaryLoanType", "id");
 
-    return new Item(
-      itemRequest.getString("id"),
-      itemRequest.getString("title"),
-      itemRequest.getString("barcode"),
-      itemRequest.getString("instanceId"),
-      status,
-      materialTypeId,
-      permanentLocationId,
-      temporaryLocationId,
-      permanentLoanTypeId,
-      temporaryLoanTypeId);
+    return new Item()
+      .withId(itemRequest.getString("id"))
+      .withTitle(itemRequest.getString("title"))
+      .withBarcode(itemRequest.getString("barcode"))
+      .withInstanceId(itemRequest.getString("instanceId"))
+      .withStatus(new Status().withName(status))
+      .withMaterialType(new MaterialType().withId(materialTypeId))
+      .withPermanentLoanType(new PermanentLoanType().withId(permanentLoanTypeId))
+      .withTemporaryLoanType(new TemporaryLoanType().withId(temporaryLoanTypeId))
+      .withPermanentLocation(new PermanentLocation().withId(permanentLocationId))
+      .withTemporaryLocation(new TemporaryLocation().withId(temporaryLocationId));
   }
 
   private String getNestedProperty(
@@ -300,7 +300,9 @@ public class Items {
     ArrayList<CompletableFuture<Response>> allFutures = new ArrayList<>();
 
     List<String> materialTypeIds = wrappedItems.records.stream()
-      .map(item -> item.materialTypeId)
+      .map(Item::getMaterialType)
+      .filter(Objects::nonNull)
+      .map(MaterialType::getId)
       .filter(Objects::nonNull)
       .distinct()
       .collect(Collectors.toList());
@@ -315,13 +317,17 @@ public class Items {
     });
 
     List<String> permanentLoanTypeIds = wrappedItems.records.stream()
-      .map(item -> item.permanentLoanTypeId)
+      .map(Item::getPermanentLoanType)
+      .filter(Objects::nonNull)
+      .map(PermanentLoanType::getId)
       .filter(Objects::nonNull)
       .distinct()
       .collect(Collectors.toList());
 
     List<String> temporaryLoanTypeIds = wrappedItems.records.stream()
-      .map(item -> item.temporaryLoanTypeId)
+      .map(Item::getTemporaryLoanType)
+      .filter(Objects::nonNull)
+      .map(TemporaryLoanType::getId)
       .filter(Objects::nonNull)
       .distinct()
       .collect(Collectors.toList());
@@ -339,21 +345,22 @@ public class Items {
     });
 
     List<String> permanentLocationIds = wrappedItems.records.stream()
-      .map(item -> item.permanentLocationId)
+      .map(Item::getPermanentLocation)
       .filter(Objects::nonNull)
+      .map(PermanentLocation::getId)
       .distinct()
       .collect(Collectors.toList());
 
     List<String> temporaryLocationIds = wrappedItems.records.stream()
-      .map(item -> item.temporaryLocationId)
+      .map(Item::getTemporaryLocation)
       .filter(Objects::nonNull)
+      .map(TemporaryLocation::getId)
       .distinct()
       .collect(Collectors.toList());
 
     Stream.concat(permanentLocationIds.stream(), temporaryLocationIds.stream())
       .distinct()
       .forEach(id -> {
-
         CompletableFuture<Response> newFuture = new CompletableFuture<>();
 
         allFutures.add(newFuture);
@@ -391,7 +398,8 @@ public class Items {
 
         JsonResponse.success(routingContext.response(),
           new ItemRepresentation(RELATIVE_ITEMS_PATH)
-            .toJson(wrappedItems, foundMaterialTypes, foundLoanTypes, foundLocations, context));
+            .toJson(wrappedItems,
+              foundMaterialTypes, foundLoanTypes, foundLocations, context));
       }
       catch(Exception e) {
         ServerErrorResponse.internalError(routingContext.response(), e.toString());
@@ -476,7 +484,7 @@ public class Items {
     itemCollection.add(newItem, success -> {
       try {
         URL url = context.absoluteUrl(String.format("%s/%s",
-          RELATIVE_ITEMS_PATH, success.getResult().id));
+          RELATIVE_ITEMS_PATH, success.getResult().getId()));
 
         RedirectResponse.created(routingContext.response(), url.toString());
       } catch (MalformedURLException e) {
@@ -517,20 +525,20 @@ public class Items {
     CompletableFuture<Response> temporaryLocationFuture,
     CompletableFuture<Response> permanentLocationFuture) {
 
-    JsonObject foundMaterialType =
-      referenceRecordFrom(item.materialTypeId, materialTypeFuture);
+    JsonObject foundMaterialType = referenceRecordFrom(
+      getMaterialTypeId(item), materialTypeFuture);
 
-    JsonObject foundPermanentLoanType =
-      referenceRecordFrom(item.permanentLoanTypeId, permanentLoanTypeFuture);
+    JsonObject foundPermanentLoanType = referenceRecordFrom(
+      getPermanentLoanTypeId(item), permanentLoanTypeFuture);
 
-    JsonObject foundTemporaryLoanType =
-      referenceRecordFrom(item.temporaryLoanTypeId, temporaryLoanTypeFuture);
+    JsonObject foundTemporaryLoanType = referenceRecordFrom(
+      getTemporaryLoanTypeId(item), temporaryLoanTypeFuture);
 
-    JsonObject foundPermanentLocation =
-      referenceRecordFrom(item.permanentLocationId, permanentLocationFuture);
+    JsonObject foundPermanentLocation = referenceRecordFrom(
+      getPermanentLocationId(item), permanentLocationFuture);
 
-    JsonObject foundTemporaryLocation =
-      referenceRecordFrom(item.temporaryLocationId, temporaryLocationFuture);
+    JsonObject foundTemporaryLocation = referenceRecordFrom(
+      getTemporaryLocationId(item), temporaryLocationFuture);
 
     return new ItemRepresentation(RELATIVE_ITEMS_PATH)
         .toJson(item,
@@ -543,8 +551,8 @@ public class Items {
   }
 
   private boolean hasSameBarcode(Item updatedItem, Item foundItem) {
-    return updatedItem.barcode == null
-      || Objects.equals(foundItem.barcode, updatedItem.barcode);
+    return updatedItem.getBarcode() == null
+      || Objects.equals(foundItem.getBarcode(), updatedItem.getBarcode());
   }
 
   private void updateItem(
@@ -565,7 +573,7 @@ public class Items {
     throws UnsupportedEncodingException {
 
     itemCollection.findByCql(
-      String.format("barcode=%s and id<>%s", updatedItem.barcode, updatedItem.id),
+      String.format("barcode=%s and id<>%s", updatedItem.getBarcode(), updatedItem.getId()),
       PagingParameters.defaults(), it -> {
 
         List<Item> items = it.getResult().records;
@@ -576,8 +584,48 @@ public class Items {
         else {
           ClientErrorResponse.badRequest(routingContext.response(),
             String.format("Barcode must be unique, %s is already assigned to another item",
-              updatedItem.barcode));
+              updatedItem.getBarcode()));
         }
       }, FailureResponseConsumer.serverError(routingContext.response()));
+  }
+
+  private String getMaterialTypeId(Item item) {
+    MaterialType materialType = item.getMaterialType();
+
+    return materialType == null
+      ? null
+      : materialType.getId();
+  }
+
+  private String getPermanentLocationId(Item item) {
+    PermanentLocation permanentLocation = item.getPermanentLocation();
+
+    return permanentLocation == null
+      ? null
+      : permanentLocation.getId();
+  }
+
+  private String getTemporaryLocationId(Item item) {
+    TemporaryLocation temporaryLocation = item.getTemporaryLocation();
+
+    return temporaryLocation == null
+      ? null
+      : temporaryLocation.getId();
+  }
+
+  private String getTemporaryLoanTypeId(Item item) {
+    TemporaryLoanType temporaryLoanType = item.getTemporaryLoanType();
+
+    return temporaryLoanType == null
+      ? null
+      : temporaryLoanType.getId();
+  }
+
+  private String getPermanentLoanTypeId(Item item) {
+    PermanentLoanType permanentLoanType = item.getPermanentLoanType();
+
+    return permanentLoanType == null
+      ? null
+      : permanentLoanType.getId();
   }
 }

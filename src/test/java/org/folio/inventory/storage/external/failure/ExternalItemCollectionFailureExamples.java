@@ -3,8 +3,11 @@ package org.folio.inventory.storage.external.failure;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.Failure;
 import org.folio.inventory.domain.CollectionProvider;
-import org.folio.inventory.domain.Item;
 import org.folio.inventory.domain.ItemCollection;
+import org.folio.rest.jaxrs.model.Item;
+import org.folio.rest.jaxrs.model.MaterialType;
+import org.folio.rest.jaxrs.model.PermanentLoanType;
+import org.folio.rest.jaxrs.model.PermanentLocation;
 import org.junit.Test;
 
 import java.io.UnsupportedEncodingException;
@@ -150,10 +153,13 @@ public abstract class ExternalItemCollectionFailureExamples {
   protected abstract void check(Failure failure);
 
   private static Item createItem() {
-    return new Item(null, UUID.randomUUID().toString(), "Nod", "6575467847",
-      UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-      UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-      UUID.randomUUID().toString(), null);
+    return new Item()
+      .withId(UUID.randomUUID().toString())
+      .withTitle("Nod")
+      .withBarcode("6575467847")
+      .withMaterialType(new MaterialType().withId(UUID.randomUUID().toString()))
+      .withPermanentLoanType(new PermanentLoanType().withId(UUID.randomUUID().toString()))
+      .withPermanentLocation(new PermanentLocation().withId(UUID.randomUUID().toString()));
   }
 
   private ItemCollection createCollection() {

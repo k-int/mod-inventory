@@ -10,16 +10,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.folio.inventory.common.CollectAll;
 import org.folio.inventory.common.MessagingContext;
 import org.folio.inventory.domain.InstanceCollection;
-import org.folio.inventory.domain.Item;
 import org.folio.inventory.domain.ItemCollection;
 import org.folio.inventory.domain.Messages;
 import org.folio.inventory.resources.ingest.IngestJob;
 import org.folio.inventory.resources.ingest.IngestJobState;
 import org.folio.inventory.storage.Storage;
 import org.folio.inventory.support.JsonArrayHelper;
-import org.folio.rest.jaxrs.model.Creator;
-import org.folio.rest.jaxrs.model.Identifier;
-import org.folio.rest.jaxrs.model.Instance;
+import org.folio.rest.jaxrs.model.*;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -108,16 +105,20 @@ public class IngestMessageProcessor {
             ? possibleInstance.get().getId()
             : null;
 
-          return new Item(null,
-            record.getString(TITLE_PROPERTY),
-            record.getString("barcode"),
-            instanceId,
-            "Available",
-            materialTypes.getString("Book"),
-            locations.getString("Main Library"),
-            null,
-            loanTypes.getString("Can Circulate"),
-            null);
+          return new Item()
+            .withTitle(record.getString(TITLE_PROPERTY))
+            .withBarcode(record.getString("barcode"))
+            .withInstanceId(instanceId)
+            .withStatus(new Status().withName("Available"))
+            .withMaterialType(new MaterialType()
+              .withId(materialTypes.getString("Book"))
+              .withName("Book"))
+            .withPermanentLoanType(new PermanentLoanType()
+              .withId(loanTypes.getString("Can Circulate"))
+              .withName("Can Circulate"))
+            .withPermanentLocation(new PermanentLocation()
+              .withId(locations.getString("Main Library"))
+              .withName("Main Library"));
       })
       .forEach(item -> itemCollection.add(item, allItems.receive(),
         failure -> log.error("Item processing failed: " + failure.getReason()))));

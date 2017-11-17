@@ -2,16 +2,21 @@ package org.folio.inventory.resources;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.logging.Logger;
+import io.vertx.core.logging.LoggerFactory;
 import org.folio.inventory.common.WebContext;
 import org.folio.inventory.common.domain.MultipleRecords;
-import org.folio.inventory.domain.Item;
+import org.folio.rest.jaxrs.model.*;
 
+import java.lang.invoke.MethodHandles;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
 class ItemRepresentation {
+  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
   private final String relativeItemsPath;
 
   public ItemRepresentation(String relativeItemsPath) {
@@ -60,38 +65,39 @@ class ItemRepresentation {
   JsonObject toJson(Item item, WebContext context) {
 
     JsonObject representation = new JsonObject();
-    representation.put("id", item.id);
-    representation.put("title", item.title);
+    representation.put("id", item.getId());
+    representation.put("title", item.getTitle());
 
-    if(item.status != null) {
-      representation.put("status", new JsonObject().put("name", item.status));
+    if(item.getStatus() != null) {
+      representation.put("status", new JsonObject()
+        .put("name", item.getStatus().getName()));
     }
 
-    includeIfPresent(representation, "instanceId", item.instanceId);
-    includeIfPresent(representation, "barcode", item.barcode);
+    includeIfPresent(representation, "instanceId", item.getInstanceId());
+    includeIfPresent(representation, "barcode", item.getBarcode());
 
     includeReferenceIfPresent(representation, "materialType",
-      item.materialTypeId);
+      getMaterialTypeId(item));
 
     includeReferenceIfPresent(representation, "permanentLoanType",
-      item.permanentLoanTypeId);
+      getPermanentLoanTypeId(item));
 
     includeReferenceIfPresent(representation, "temporaryLoanType",
-      item.temporaryLoanTypeId);
+      getTemporaryLoanTypeId(item));
 
     includeReferenceIfPresent(representation, "permanentLocation",
-      item.permanentLocationId);
+      getPermanentLocationId(item));
 
     includeReferenceIfPresent(representation, "temporaryLocation",
-      item.temporaryLocationId);
+      getTemporaryLocationId(item));
 
     try {
       URL selfUrl = context.absoluteUrl(String.format("%s/%s",
-        relativeItemsPath, item.id));
+        relativeItemsPath, item.getId()));
 
       representation.put("links", new JsonObject().put("self", selfUrl.toString()));
     } catch (MalformedURLException e) {
-      System.out.println(String.format("Failed to create self link for item: " + e.toString()));
+      log.warn(String.format("Failed to create self link for item: %s", e.toString()));
     }
 
     return representation;
@@ -111,11 +117,12 @@ class ItemRepresentation {
     List<Item> items = wrappedItems.records;
 
     items.stream().forEach(item -> {
-      JsonObject materialType = materialTypes.get(item.materialTypeId);
-      JsonObject permanentLoanType = loanTypes.get(item.permanentLoanTypeId);
-      JsonObject temporaryLoanType = loanTypes.get(item.temporaryLoanTypeId);
-      JsonObject permanentLocation = locations.get(item.permanentLocationId);
-      JsonObject temporaryLocation = locations.get(item.temporaryLocationId);
+      JsonObject materialType = materialTypes.get(getMaterialTypeId(item));
+      JsonObject permanentLoanType = loanTypes.get(getPermanentLoanTypeId(item));
+      JsonObject temporaryLoanType = loanTypes.get(getTemporaryLoanTypeId(item));
+      JsonObject permanentLocation = locations.get(getPermanentLocationId(item));
+      JsonObject temporaryLocation = locations.get(getTemporaryLocationId(item));
+
       results.add(toJson(item, materialType, permanentLoanType, temporaryLoanType,
         permanentLocation, temporaryLocation, context));
     });
@@ -146,5 +153,45 @@ class ItemRepresentation {
     if (propertyValue != null) {
       representation.put(propertyName, propertyValue);
     }
+  }
+
+  private String getMaterialTypeId(Item item) {
+    MaterialType materialType = item.getMaterialType();
+
+    return materialType == null
+      ? null
+      : materialType.getId();
+  }
+
+  private String getPermanentLocationId(Item item) {
+    PermanentLocation permanentLocation = item.getPermanentLocation();
+
+    return permanentLocation == null
+      ? null
+      : permanentLocation.getId();
+  }
+
+  private String getTemporaryLocationId(Item item) {
+    TemporaryLocation temporaryLocation = item.getTemporaryLocation();
+
+    return temporaryLocation == null
+      ? null
+      : temporaryLocation.getId();
+  }
+
+  private String getTemporaryLoanTypeId(Item item) {
+    TemporaryLoanType temporaryLoanType = item.getTemporaryLoanType();
+
+    return temporaryLoanType == null
+      ? null
+      : temporaryLoanType.getId();
+  }
+
+  private String getPermanentLoanTypeId(Item item) {
+    PermanentLoanType permanentLoanType = item.getPermanentLoanType();
+
+    return permanentLoanType == null
+      ? null
+      : permanentLoanType.getId();
   }
 }
