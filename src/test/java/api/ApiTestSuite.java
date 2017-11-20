@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import org.folio.inventory.InventoryVerticle;
 import org.folio.inventory.common.VertxAssistant;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
+import org.folio.rest.RestVerticle;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
@@ -55,6 +56,9 @@ public class ApiTestSuite {
   private static Boolean useOkapiForStorageRequests =
     Boolean.parseBoolean(System.getProperty("use.okapi.storage.requests", ""));
   private static String okapiAddress = System.getProperty("okapi.address", "");
+
+  private static Boolean useRamlModuleBuilder =
+    Boolean.parseBoolean(System.getProperty("use.raml.module.builder", ""));
 
   @BeforeClass
   public static void before()
@@ -167,24 +171,12 @@ public class ApiTestSuite {
   private static void startInventoryVerticle()
     throws InterruptedException, ExecutionException, TimeoutException {
 
-    CompletableFuture<String> deployed = new CompletableFuture<>();
+    if(useRamlModuleBuilder) {
+      startRamlModuleBuilderVerticle();
 
-    String storageType = "okapi";
-    String storageLocation = "";
-
-    System.out.println(String.format("Storage Type: %s", storageType));
-    System.out.println(String.format("Storage Location: %s", storageLocation));
-
-    Map<String, Object> config = new HashMap<>();
-
-    config.put("port", INVENTORY_VERTICLE_TEST_PORT);
-    config.put("storage.type", storageType);
-    config.put("storage.location", storageLocation);
-
-    vertxAssistant.deployVerticle(
-      InventoryVerticle.class.getName(), config, deployed);
-
-    inventoryModuleDeploymentId = deployed.get(20000, TimeUnit.MILLISECONDS);
+    } else {
+      startJavaInventoryVerticle();
+    }
   }
 
   private static void stopInventoryVerticle()
@@ -322,5 +314,43 @@ public class ApiTestSuite {
       new ControlledVocabularyPreparation(client, creatorTypes, "creatorTypes");
 
     personalCreatorTypeId = creatorTypesPreparation.createOrReferenceTerm("Personal name");
+  }
+
+  private static void startRamlModuleBuilderVerticle()
+    throws InterruptedException, ExecutionException, TimeoutException {
+
+    CompletableFuture<String> deployed = new CompletableFuture<>();
+
+    Map<String, Object> config = new HashMap<>();
+
+    config.put("http.port", INVENTORY_VERTICLE_TEST_PORT);
+
+    vertxAssistant.deployVerticle(RestVerticle.class.getName(), config,
+      deployed);
+
+    inventoryModuleDeploymentId = deployed.get(20000, TimeUnit.MILLISECONDS);
+  }
+
+  private static void startJavaInventoryVerticle()
+    throws InterruptedException, ExecutionException, TimeoutException {
+
+    CompletableFuture<String> deployed = new CompletableFuture<>();
+
+    String storageType = "okapi";
+    String storageLocation = "";
+
+    System.out.println(String.format("Storage Type: %s", storageType));
+    System.out.println(String.format("Storage Location: %s", storageLocation));
+
+    Map<String, Object> config = new HashMap<>();
+
+    config.put("port", INVENTORY_VERTICLE_TEST_PORT);
+    config.put("storage.type", storageType);
+    config.put("storage.location", storageLocation);
+
+    vertxAssistant.deployVerticle(
+      InventoryVerticle.class.getName(), config, deployed);
+
+    inventoryModuleDeploymentId = deployed.get(20000, TimeUnit.MILLISECONDS);
   }
 }
