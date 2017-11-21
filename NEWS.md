@@ -1,5 +1,6 @@
 ## 6.0.0 Unreleased
 
+* Responses to POST include representation (MODINV-16)
 * Removes Dublin Core context from instances (MODINV-16)
 * Removes `links` property from `instance` and `item` record (MODINV-16) 
 * Removes `location` property from `item` record

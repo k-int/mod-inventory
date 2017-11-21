@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -205,42 +206,56 @@ public class Items {
         Item item = itemResponse.getResult();
 
         if(item != null) {
-          ArrayList<CompletableFuture<Response>> allFutures = new ArrayList<>();
-
-          CompletableFuture<Response> materialTypeFuture = getReferenceRecord(
-            getMaterialTypeId(item), materialTypesClient, allFutures);
-
-          CompletableFuture<Response> permanentLoanTypeFuture = getReferenceRecord(
-            getPermanentLoanTypeId(item), loanTypesClient, allFutures);
-
-          CompletableFuture<Response> temporaryLoanTypeFuture = getReferenceRecord(
-            getTemporaryLoanTypeId(item), loanTypesClient, allFutures);
-
-          CompletableFuture<Response> permanentLocationFuture = getReferenceRecord(
-            getPermanentLocationId(item), locationsClient, allFutures);
-
-          CompletableFuture<Response> temporaryLocationFuture = getReferenceRecord(
-            getTemporaryLocationId(item), locationsClient, allFutures);
-
-          CompletableFuture<Void> allDoneFuture = allOf(allFutures);
-
-          allDoneFuture.thenAccept(v -> {
-            try {
-              JsonObject representation = includeReferenceRecordInformationInItem(
-                item, materialTypeFuture, permanentLoanTypeFuture,
-                temporaryLoanTypeFuture, temporaryLocationFuture, permanentLocationFuture);
-
-              JsonResponse.success(routingContext.response(), representation);
-            } catch (Exception e) {
-              ServerErrorResponse.internalError(routingContext.response(),
-                "Error creating Item Representation: " + e.toString());
-            }
-          });
+          respondWithItem(routingContext, item, materialTypesClient,
+            loanTypesClient, locationsClient,
+            representation -> JsonResponse.success(routingContext.response(),
+              representation));
         }
         else {
           ClientErrorResponse.notFound(routingContext.response());
         }
       }, FailureResponseConsumer.serverError(routingContext.response()));
+  }
+
+  private void respondWithItem(
+    RoutingContext routingContext,
+    Item item,
+    CollectionResourceClient materialTypesClient,
+    CollectionResourceClient loanTypesClient,
+    CollectionResourceClient locationsClient,
+    Consumer<JsonObject> responder) {
+
+    ArrayList<CompletableFuture<Response>> allFutures = new ArrayList<>();
+
+    CompletableFuture<Response> materialTypeFuture = getReferenceRecord(
+      getMaterialTypeId(item), materialTypesClient, allFutures);
+
+    CompletableFuture<Response> permanentLoanTypeFuture = getReferenceRecord(
+      getPermanentLoanTypeId(item), loanTypesClient, allFutures);
+
+    CompletableFuture<Response> temporaryLoanTypeFuture = getReferenceRecord(
+      getTemporaryLoanTypeId(item), loanTypesClient, allFutures);
+
+    CompletableFuture<Response> permanentLocationFuture = getReferenceRecord(
+      getPermanentLocationId(item), locationsClient, allFutures);
+
+    CompletableFuture<Response> temporaryLocationFuture = getReferenceRecord(
+      getTemporaryLocationId(item), locationsClient, allFutures);
+
+    CompletableFuture<Void> allDoneFuture = allOf(allFutures);
+
+    allDoneFuture.thenAccept(v -> {
+      try {
+        JsonObject representation = includeReferenceRecordInformationInItem(
+          item, materialTypeFuture, permanentLoanTypeFuture,
+          temporaryLoanTypeFuture, temporaryLocationFuture, permanentLocationFuture);
+
+        responder.accept(representation);
+      } catch (Exception e) {
+        ServerErrorResponse.internalError(routingContext.response(),
+          "Error creating Item Representation: " + e.toString());
+      }
+    });
   }
 
   private Item requestToItem(JsonObject itemRequest) {
@@ -481,12 +496,31 @@ public class Items {
     Item newItem,
     ItemCollection itemCollection) {
 
+    CollectionResourceClient materialTypesClient;
+    CollectionResourceClient loanTypesClient;
+    CollectionResourceClient locationsClient;
+
+    try {
+      OkapiHttpClient client = createHttpClient(routingContext, context);
+      materialTypesClient = createMaterialTypesClient(client, context);
+      loanTypesClient = createLoanTypesClient(client, context);
+      locationsClient = createLocationsClient(client, context);
+    }
+    catch (MalformedURLException e) {
+      invalidOkapiUrlResponse(routingContext, context);
+
+      return;
+    }
+
     itemCollection.add(newItem, success -> {
       try {
-        URL url = context.absoluteUrl(String.format("%s/%s",
+        URL location = context.absoluteUrl(String.format("%s/%s",
           RELATIVE_ITEMS_PATH, success.getResult().getId()));
 
-        RedirectResponse.created(routingContext.response(), url.toString());
+        respondWithItem(routingContext, success.getResult(), materialTypesClient
+          , loanTypesClient, locationsClient, representation ->
+            JsonResponse.created(routingContext.response(), representation,
+            location));
       } catch (MalformedURLException e) {
         log.warn(String.format("Failed to create self link for item: %s", e.toString()));
       }

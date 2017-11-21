@@ -107,9 +107,13 @@ public class Instances {
           URL url = context.absoluteUrl(String.format("%s/%s",
             INSTANCES_PATH, success.getResult().getId()));
 
-          RedirectResponse.created(routingContext.response(), url.toString());
+          Instance createdInstance = success.getResult();
+
+          JsonResponse.created(routingContext.response(),
+            toRepresentation(createdInstance), url);
+
         } catch (MalformedURLException e) {
-          String message = String.format("Failed to create location URL: %s", e.toString());
+          String message = String.format("Failed to create URL for location header: %s", e.toString());
           log.warn(message);
           ServerErrorResponse.internalError(routingContext.response(), message);
         }

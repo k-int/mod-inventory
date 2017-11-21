@@ -8,22 +8,33 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.folio.inventory.support.http.ContentType;
 
+import java.net.URL;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class JsonResponse {
   private JsonResponse() { }
 
-  public static void created(HttpServerResponse response,
-                      JsonObject body) {
+  public static void created(
+    HttpServerResponse response,
+    JsonObject body) {
 
-    response(response, body, 201);
+    response(response, body, 201, null);
   }
 
-  public static void success(HttpServerResponse response,
-                             JsonObject body) {
+  public static void created(
+    HttpServerResponse response,
+    JsonObject body,
+    URL location) {
 
-    response(response, body, 200);
+    response(response, body, 201, location);
+  }
+
+  public static void success(
+    HttpServerResponse response,
+    JsonObject body) {
+
+    response(response, body, 200, null);
   }
 
   public static void unprocessableEntity(
@@ -40,17 +51,24 @@ public class JsonResponse {
       .put("message", message)
       .put("parameters", parameters);
 
-    response(response, wrappedErrors, 422);
+    response(response, wrappedErrors, 422, null);
   }
 
-  private static void response(HttpServerResponse response,
-                               JsonObject body,
-                               int statusCode) {
+  private static void response(
+    HttpServerResponse response,
+    JsonObject body,
+    int statusCode,
+    URL location) {
 
     String json = Json.encodePrettily(body);
     Buffer buffer = Buffer.buffer(json, "UTF-8");
 
     response.setStatusCode(statusCode);
+
+    if(location != null) {
+      response.putHeader(HttpHeaders.LOCATION, location.toString());
+    }
+
     response.putHeader(HttpHeaders.CONTENT_TYPE, String.format("%s; charset=utf-8",
       ContentType.APPLICATION_JSON));
 
