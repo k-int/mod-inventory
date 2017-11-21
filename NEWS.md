@@ -1,7 +1,8 @@
 ## 6.0.0 Unreleased
 
-* Removes `links` property from `instance` and `item` representation (MODINV-16) 
-* Removes `location` property from Item record
+* Removes Dublin Core context from instances (MODINV-16)
+* Removes `links` property from `instance` and `item` record (MODINV-16) 
+* Removes `location` property from `item` record
 * Introduces `permanentLocation` and `temporaryLocation` properties (which include the name fetched from `shelf-locations`)
 * Provides inventory interface version 4.0
 * Requires item-storage interface version 4.0

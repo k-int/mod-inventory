@@ -13,7 +13,6 @@ schemas:
  - items: !include items.json
  - instance.json: !include instance.json
  - instances: !include instances.json
- - context: !include instance_context.json
  - ingest-status: !include ingest_status.json
 
 traits:
@@ -71,16 +70,6 @@ resourceTypes:
           exampleItem: !include examples/instance_get.json
           schema: instance.json
       get:
-    /context:
-      get:
-        description: "Provides Dublin Core context for instances"
-        responses:
-          200:
-            description: "Dublin Core context for instances"
-            body:
-              application/json:
-                example: !include examples/instance_context_get.json
-                schema: context
   /ingest:
     /mods:
       post:

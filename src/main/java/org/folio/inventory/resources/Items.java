@@ -227,7 +227,7 @@ public class Items {
           allDoneFuture.thenAccept(v -> {
             try {
               JsonObject representation = includeReferenceRecordInformationInItem(
-                context, item, materialTypeFuture, permanentLoanTypeFuture,
+                item, materialTypeFuture, permanentLoanTypeFuture,
                 temporaryLoanTypeFuture, temporaryLocationFuture, permanentLocationFuture);
 
               JsonResponse.success(routingContext.response(), representation);
@@ -397,9 +397,9 @@ public class Items {
           .collect(Collectors.toMap(r -> r.getString("id"), r -> r));
 
         JsonResponse.success(routingContext.response(),
-          new ItemRepresentation(RELATIVE_ITEMS_PATH)
+          new ItemRepresentation()
             .toJson(wrappedItems,
-              foundMaterialTypes, foundLoanTypes, foundLocations, context));
+              foundMaterialTypes, foundLoanTypes, foundLocations));
       }
       catch(Exception e) {
         ServerErrorResponse.internalError(routingContext.response(), e.toString());
@@ -517,7 +517,6 @@ public class Items {
   }
 
   private JsonObject includeReferenceRecordInformationInItem(
-    WebContext context,
     Item item,
     CompletableFuture<Response> materialTypeFuture,
     CompletableFuture<Response> permanentLoanTypeFuture,
@@ -540,14 +539,14 @@ public class Items {
     JsonObject foundTemporaryLocation = referenceRecordFrom(
       getTemporaryLocationId(item), temporaryLocationFuture);
 
-    return new ItemRepresentation(RELATIVE_ITEMS_PATH)
+    return new ItemRepresentation()
         .toJson(item,
           foundMaterialType,
           foundPermanentLoanType,
           foundTemporaryLoanType,
           foundPermanentLocation,
-          foundTemporaryLocation,
-          context);
+          foundTemporaryLocation
+        );
   }
 
   private boolean hasSameBarcode(Item updatedItem, Item foundItem) {

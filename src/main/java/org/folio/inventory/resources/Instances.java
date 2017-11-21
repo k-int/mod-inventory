@@ -45,9 +45,6 @@ public class Instances {
     router.post(INSTANCES_PATH + "*").handler(BodyHandler.create());
     router.put(INSTANCES_PATH + "*").handler(BodyHandler.create());
 
-    router.get(INSTANCES_PATH + "/context")
-      .handler(this::getMetadataContext);
-
     router.get(INSTANCES_PATH).handler(this::getAll);
     router.post(INSTANCES_PATH).handler(this::create);
     router.delete(INSTANCES_PATH).handler(this::deleteAll);
@@ -55,16 +52,6 @@ public class Instances {
     router.get(INSTANCES_PATH + "/:id").handler(this::getById);
     router.put(INSTANCES_PATH + "/:id").handler(this::update);
     router.delete(INSTANCES_PATH + "/:id").handler(this::deleteById);
-  }
-
-  private void getMetadataContext(RoutingContext routingContext) {
-    JsonObject representation = new JsonObject();
-
-    representation.put("@context", new JsonObject()
-      .put("dcterms", "http://purl.org/dc/terms/")
-      .put(TITLE_PROPERTY_NAME, "dcterms:title"));
-
-    JsonResponse.success(routingContext.response(), representation);
   }
 
   private void getAll(RoutingContext routingContext) {
@@ -85,7 +72,7 @@ public class Instances {
       storage.getInstanceCollection(context).findAll(
         pagingParameters,
         success -> JsonResponse.success(routingContext.response(),
-          toRepresentation(success.getResult(), context)),
+          toRepresentation(success.getResult())),
         FailureResponseConsumer.serverError(routingContext.response()));
     }
     else {
@@ -93,7 +80,7 @@ public class Instances {
         storage.getInstanceCollection(context).findByCql(search,
           pagingParameters, success ->
             JsonResponse.success(routingContext.response(),
-            toRepresentation(success.getResult(), context)),
+            toRepresentation(success.getResult())),
           FailureResponseConsumer.serverError(routingContext.response()));
       } catch (UnsupportedEncodingException e) {
         ServerErrorResponse.internalError(routingContext.response(), e.toString());
@@ -176,7 +163,7 @@ public class Instances {
       it -> {
         if(it.getResult() != null) {
           JsonResponse.success(routingContext.response(),
-            toRepresentation(it.getResult(), context));
+            toRepresentation(it.getResult()));
         }
         else {
           ClientErrorResponse.notFound(routingContext.response());
@@ -185,8 +172,7 @@ public class Instances {
   }
 
   private JsonObject toRepresentation(
-    MultipleRecords<Instance> wrappedInstances,
-    WebContext context) {
+    MultipleRecords<Instance> wrappedInstances) {
 
     JsonObject representation = new JsonObject();
 
@@ -195,7 +181,7 @@ public class Instances {
     List<Instance> instances = wrappedInstances.records;
 
     instances.stream().forEach(instance ->
-      results.add(toRepresentation(instance, context)));
+      results.add(toRepresentation(instance)));
 
     representation
       .put("instances", results)
@@ -204,16 +190,8 @@ public class Instances {
     return representation;
   }
 
-  private JsonObject toRepresentation(Instance instance, WebContext context) {
+  private JsonObject toRepresentation(Instance instance) {
     JsonObject representation = new JsonObject();
-
-    try {
-      representation.put("@context", context.absoluteUrl(
-        INSTANCES_PATH + "/context").toString());
-    } catch (MalformedURLException e) {
-      log.warn(
-        String.format("Failed to create context link for instance: %s", e.toString()));
-    }
 
     representation.put("id", instance.getId());
     representation.put(TITLE_PROPERTY_NAME, instance.getTitle());

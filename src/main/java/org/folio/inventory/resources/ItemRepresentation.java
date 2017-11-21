@@ -2,35 +2,22 @@ package org.folio.inventory.resources;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.logging.Logger;
-import io.vertx.core.logging.LoggerFactory;
-import org.folio.inventory.common.WebContext;
 import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.rest.jaxrs.model.*;
 
-import java.lang.invoke.MethodHandles;
 import java.util.List;
 import java.util.Map;
 
 class ItemRepresentation {
-  private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
-  private final String relativeItemsPath;
-
-  public ItemRepresentation(String relativeItemsPath) {
-    this.relativeItemsPath = relativeItemsPath;
-  }
-
-  public JsonObject toJson(
+  JsonObject toJson(
     Item item,
     JsonObject materialType,
     JsonObject permanentLoanType,
     JsonObject temporaryLoanType,
     JsonObject permanentLocation,
-    JsonObject temporaryLocation,
-    WebContext context) {
+    JsonObject temporaryLocation) {
 
-    JsonObject representation = toJson(item, context);
+    JsonObject representation = toJson(item);
 
     if(materialType != null) {
       representation.getJsonObject("materialType")
@@ -60,7 +47,37 @@ class ItemRepresentation {
     return representation;
   }
 
-  JsonObject toJson(Item item, WebContext context) {
+  JsonObject toJson(
+    MultipleRecords<Item> wrappedItems,
+    Map<String, JsonObject> materialTypes,
+    Map<String, JsonObject> loanTypes,
+    Map<String, JsonObject> locations) {
+
+    JsonObject representation = new JsonObject();
+
+    JsonArray results = new JsonArray();
+
+    List<Item> items = wrappedItems.records;
+
+    items.stream().forEach(item -> {
+      JsonObject materialType = materialTypes.get(getMaterialTypeId(item));
+      JsonObject permanentLoanType = loanTypes.get(getPermanentLoanTypeId(item));
+      JsonObject temporaryLoanType = loanTypes.get(getTemporaryLoanTypeId(item));
+      JsonObject permanentLocation = locations.get(getPermanentLocationId(item));
+      JsonObject temporaryLocation = locations.get(getTemporaryLocationId(item));
+
+      results.add(toJson(item, materialType, permanentLoanType, temporaryLoanType,
+        permanentLocation, temporaryLocation));
+    });
+
+    representation
+      .put("items", results)
+      .put("totalRecords", wrappedItems.totalRecords);
+
+    return representation;
+  }
+
+  private JsonObject toJson(Item item) {
 
     JsonObject representation = new JsonObject();
     representation.put("id", item.getId());
@@ -88,37 +105,6 @@ class ItemRepresentation {
 
     includeReferenceIfPresent(representation, "temporaryLocation",
       getTemporaryLocationId(item));
-
-    return representation;
-  }
-
-  public JsonObject toJson(
-    MultipleRecords<Item> wrappedItems,
-    Map<String, JsonObject> materialTypes,
-    Map<String, JsonObject> loanTypes,
-    Map<String, JsonObject> locations,
-    WebContext context) {
-
-    JsonObject representation = new JsonObject();
-
-    JsonArray results = new JsonArray();
-
-    List<Item> items = wrappedItems.records;
-
-    items.stream().forEach(item -> {
-      JsonObject materialType = materialTypes.get(getMaterialTypeId(item));
-      JsonObject permanentLoanType = loanTypes.get(getPermanentLoanTypeId(item));
-      JsonObject temporaryLoanType = loanTypes.get(getTemporaryLoanTypeId(item));
-      JsonObject permanentLocation = locations.get(getPermanentLocationId(item));
-      JsonObject temporaryLocation = locations.get(getTemporaryLocationId(item));
-
-      results.add(toJson(item, materialType, permanentLoanType, temporaryLoanType,
-        permanentLocation, temporaryLocation, context));
-    });
-
-    representation
-      .put("items", results)
-      .put("totalRecords", wrappedItems.totalRecords);
 
     return representation;
   }

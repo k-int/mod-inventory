@@ -3,29 +3,19 @@ package api;
 import api.support.ApiRoot;
 import api.support.InstanceApiClient;
 import api.support.Preparation;
-import com.github.jsonldjava.core.DocumentLoader;
 import com.github.jsonldjava.core.JsonLdError;
-import com.github.jsonldjava.core.JsonLdOptions;
-import com.github.jsonldjava.core.JsonLdProcessor;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import org.apache.http.Header;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.cache.CachingHttpClientBuilder;
-import org.apache.http.message.BasicHeader;
 import org.folio.inventory.support.JsonArrayHelper;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
 import org.folio.inventory.support.http.client.Response;
 import org.folio.inventory.support.http.client.ResponseHandler;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -34,6 +24,7 @@ import java.util.concurrent.TimeoutException;
 
 import static api.support.InstanceSamples.*;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertThat;
 
 public class InstancesApiExamples {
@@ -114,9 +105,6 @@ public class InstancesApiExamples {
       is(ApiTestSuite.getPersonalCreatorType()));
 
     assertThat(firstCreator.getString("name"), is("Chambers, Becky"));
-
-    expressesDublinCoreMetadata(createdInstance);
-    dublinCoreContextLinkRespectsWayResourceWasReached(createdInstance);
   }
 
   @Test
@@ -183,9 +171,6 @@ public class InstancesApiExamples {
       is(ApiTestSuite.getPersonalCreatorType()));
 
     assertThat(firstCreator.getString("name"), is("Chambers, Becky"));
-
-    expressesDublinCoreMetadata(createdInstance);
-    dublinCoreContextLinkRespectsWayResourceWasReached(createdInstance);
   }
 
   @Test
@@ -485,50 +470,19 @@ public class InstancesApiExamples {
   }
 
   private void hasCollectionProperties(List<JsonObject> instances) {
-    instances.stream().forEach(instance -> {
-      try {
-        expressesDublinCoreMetadata(instance);
-      } catch (JsonLdError jsonLdError) {
-        Assert.fail(jsonLdError.toString());
-      }
+
+    instances.forEach(instance -> {
+      assertThat(instance.containsKey("id"), is(true));
+      assertThat(instance.containsKey("title"), is(true));
+      assertThat(instance.containsKey("source"), is(true));
+      assertThat(instance.containsKey("instanceTypeId"), is(true));
+
+      assertThat(instance.containsKey("identifiers"), is(true));
+      assertThat(instance.getJsonArray("identifiers").size(), is(greaterThan(0)));
+
+      assertThat(instance.containsKey("creators"), is(true));
+      assertThat(instance.getJsonArray("creators").size(), is(greaterThan(0)));
     });
-
-    instances.stream().forEach(instance ->
-      dublinCoreContextLinkRespectsWayResourceWasReached(instance));
-  }
-
-  private static void expressesDublinCoreMetadata(JsonObject instance)
-    throws JsonLdError {
-
-    JsonLdOptions options = new JsonLdOptions();
-    DocumentLoader documentLoader = new DocumentLoader();
-
-    ArrayList<Header> headers = new ArrayList<>();
-
-    headers.add(new BasicHeader("X-Okapi-Tenant", ApiTestSuite.TENANT_ID));
-
-    CloseableHttpClient httpClient = CachingHttpClientBuilder
-      .create()
-      .setDefaultHeaders(headers)
-      .build();
-
-    documentLoader.setHttpClient(httpClient);
-
-    options.setDocumentLoader(documentLoader);
-
-    List<Object> expandedLinkedData = JsonLdProcessor.expand(instance.getMap(), options);
-
-    assertThat("No Linked Data present", expandedLinkedData.isEmpty(), is(false));
-    assertThat(LinkedDataValue(expandedLinkedData,
-      "http://purl.org/dc/terms/title"), is(instance.getString("title")));
-  }
-
-  private static String LinkedDataValue(List<Object> expanded, String field) {
-    //TODO: improve on how to traverse JSON-LD results
-    return ((Map<String, Object>)((ArrayList<Map>)
-      ((Map<String, Object>)expanded.get(0))
-        .get(field)).get(0))
-        .get("@value").toString();
   }
 
   private JsonObject createInstance(JsonObject newInstanceRequest)
@@ -538,15 +492,5 @@ public class InstancesApiExamples {
     ExecutionException {
 
     return InstanceApiClient.createInstance(okapiClient, newInstanceRequest);
-  }
-
-  private static void dublinCoreContextLinkRespectsWayResourceWasReached(
-    JsonObject instance) {
-
-    containsApiRoot(instance.getString("@context"));
-  }
-
-  private static void containsApiRoot(String link) {
-    assertThat(link.contains(ApiTestSuite.apiRoot()), is(true));
   }
 }

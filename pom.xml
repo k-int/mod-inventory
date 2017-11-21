@@ -97,7 +97,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <vertx.version>3.3.2</vertx.version>
-    <generate_routing_context>/inventory/items,/inventory/ingest/mods,/inventory/instances,/inventory/instances/context
+    <generate_routing_context>/inventory/items,/inventory/ingest/mods,/inventory/instances
     </generate_routing_context>
     <ramlfiles_path>${basedir}/ramls/</ramlfiles_path>
   </properties>
