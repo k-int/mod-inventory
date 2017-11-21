@@ -9,8 +9,6 @@ import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.rest.jaxrs.model.*;
 
 import java.lang.invoke.MethodHandles;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.List;
 import java.util.Map;
 
@@ -90,15 +88,6 @@ class ItemRepresentation {
 
     includeReferenceIfPresent(representation, "temporaryLocation",
       getTemporaryLocationId(item));
-
-    try {
-      URL selfUrl = context.absoluteUrl(String.format("%s/%s",
-        relativeItemsPath, item.getId()));
-
-      representation.put("links", new JsonObject().put("self", selfUrl.toString()));
-    } catch (MalformedURLException e) {
-      log.warn(String.format("Failed to create self link for item: %s", e.toString()));
-    }
 
     return representation;
   }

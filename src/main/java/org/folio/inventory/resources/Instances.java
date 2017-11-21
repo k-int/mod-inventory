@@ -122,8 +122,9 @@ public class Instances {
 
           RedirectResponse.created(routingContext.response(), url.toString());
         } catch (MalformedURLException e) {
-          log.warn(
-            String.format("Failed to create self link for instance: %s", e.toString()));
+          String message = String.format("Failed to create location URL: %s", e.toString());
+          log.warn(message);
+          ServerErrorResponse.internalError(routingContext.response(), message);
         }
       }, FailureResponseConsumer.serverError(routingContext.response()));
   }
@@ -232,16 +233,6 @@ public class Instances {
           .put("creatorTypeId", creator.getCreatorTypeId())
           .put("name", creator.getName()))
         .collect(Collectors.toList())));
-
-    try {
-      URL selfUrl = context.absoluteUrl(String.format("%s/%s",
-        INSTANCES_PATH, instance.getId()));
-
-      representation.put("links", new JsonObject().put("self", selfUrl.toString()));
-    } catch (MalformedURLException e) {
-      log.warn(
-        String.format("Failed to create self link for instance: %s", e.toString()));
-    }
 
     return representation;
   }

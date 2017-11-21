@@ -117,8 +117,6 @@ public class InstancesApiExamples {
 
     expressesDublinCoreMetadata(createdInstance);
     dublinCoreContextLinkRespectsWayResourceWasReached(createdInstance);
-    selfLinkRespectsWayResourceWasReached(createdInstance);
-    selfLinkShouldBeReachable(createdInstance);
   }
 
   @Test
@@ -188,8 +186,6 @@ public class InstancesApiExamples {
 
     expressesDublinCoreMetadata(createdInstance);
     dublinCoreContextLinkRespectsWayResourceWasReached(createdInstance);
-    selfLinkRespectsWayResourceWasReached(createdInstance);
-    selfLinkShouldBeReachable(createdInstance);
   }
 
   @Test
@@ -252,9 +248,6 @@ public class InstancesApiExamples {
     assertThat(updatedInstance.getString("id"), is(newInstance.getString("id")));
     assertThat(updatedInstance.getString("title"), is("The Long Way to a Small, Angry Planet"));
     assertThat(updatedInstance.getJsonArray("identifiers").size(), is(1));
-
-    selfLinkRespectsWayResourceWasReached(updatedInstance);
-    selfLinkShouldBeReachable(updatedInstance);
   }
 
   @Test
@@ -502,17 +495,6 @@ public class InstancesApiExamples {
 
     instances.stream().forEach(instance ->
       dublinCoreContextLinkRespectsWayResourceWasReached(instance));
-
-    instances.stream().forEach(instance ->
-      selfLinkRespectsWayResourceWasReached(instance));
-
-    instances.stream().forEach(instance -> {
-      try {
-        selfLinkShouldBeReachable(instance);
-      } catch (Exception e) {
-        Assert.fail(e.toString());
-      }
-    });
   }
 
   private static void expressesDublinCoreMetadata(JsonObject instance)
@@ -558,29 +540,10 @@ public class InstancesApiExamples {
     return InstanceApiClient.createInstance(okapiClient, newInstanceRequest);
   }
 
-  private void selfLinkShouldBeReachable(JsonObject instance)
-    throws InterruptedException,
-    ExecutionException,
-    TimeoutException {
-
-    CompletableFuture<Response> getCompleted = new CompletableFuture<>();
-
-    okapiClient.get(instance.getJsonObject("links").getString("self"),
-      ResponseHandler.json(getCompleted));
-
-    Response getResponse = getCompleted.get(5, TimeUnit.SECONDS);
-
-    assertThat(getResponse.getStatusCode(), is(200));
-  }
-
   private static void dublinCoreContextLinkRespectsWayResourceWasReached(
     JsonObject instance) {
 
     containsApiRoot(instance.getString("@context"));
-  }
-
-  private static void selfLinkRespectsWayResourceWasReached(JsonObject instance) {
-    containsApiRoot(instance.getJsonObject("links").getString("self"));
   }
 
   private static void containsApiRoot(String link) {

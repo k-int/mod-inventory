@@ -1,5 +1,6 @@
 ## 6.0.0 Unreleased
 
+* Removes `links` property from `instance` and `item` representation (MODINV-16) 
 * Removes `location` property from Item record
 * Introduces `permanentLocation` and `temporaryLocation` properties (which include the name fetched from `shelf-locations`)
 * Provides inventory interface version 4.0

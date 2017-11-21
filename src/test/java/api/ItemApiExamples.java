@@ -10,7 +10,6 @@ import org.folio.inventory.support.JsonArrayHelper;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
 import org.folio.inventory.support.http.client.Response;
 import org.folio.inventory.support.http.client.ResponseHandler;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -108,9 +107,6 @@ public class ItemApiExamples {
 
     assertThat(createdItem.getJsonObject("permanentLocation").getString("name"), is("Main Library"));
     assertThat(createdItem.getJsonObject("temporaryLocation").getString("name"), is("Annex Library"));
-
-    selfLinkRespectsWayResourceWasReached(createdItem);
-    selfLinkShouldBeReachable(createdItem);
   }
 
   @Test
@@ -178,9 +174,6 @@ public class ItemApiExamples {
 
     assertThat(createdItem.getJsonObject("permanentLocation").getString("name"), is("Main Library"));
     assertThat(createdItem.getJsonObject("temporaryLocation").getString("name"), is("Annex Library"));
-
-    selfLinkRespectsWayResourceWasReached(createdItem);
-    selfLinkShouldBeReachable(createdItem);
   }
 
   @Test
@@ -377,9 +370,6 @@ public class ItemApiExamples {
     assertThat(permanentLoanType.getString("name"), is("Can Circulate"));
 
     assertThat(createdItem.containsKey("temporaryLoanType"), is(false));
-
-    selfLinkRespectsWayResourceWasReached(createdItem);
-    selfLinkShouldBeReachable(createdItem);
   }
 
   @Test
@@ -438,9 +428,6 @@ public class ItemApiExamples {
 
     assertThat(updatedItem.getJsonObject("permanentLocation").getString("name"), is("Main Library"));
     assertThat(updatedItem.getJsonObject("temporaryLocation").getString("name"), is("Annex Library"));
-
-    selfLinkRespectsWayResourceWasReached(updatedItem);
-    selfLinkShouldBeReachable(updatedItem);
   }
 
   @Test
@@ -608,8 +595,6 @@ public class ItemApiExamples {
     assertThat(secondPageItems.size(), is(2));
     assertThat(secondPageResponse.getJson().getInteger("totalRecords"), is(5));
 
-    firstPageItems.stream().forEach(ItemApiExamples::selfLinkRespectsWayResourceWasReached);
-    firstPageItems.stream().forEach(this::selfLinkShouldBeReachable);
     firstPageItems.stream().forEach(ItemApiExamples::hasConsistentMaterialType);
     firstPageItems.stream().forEach(ItemApiExamples::hasConsistentPermanentLoanType);
     firstPageItems.stream().forEach(ItemApiExamples::hasConsistentTemporaryLoanType);
@@ -618,11 +603,10 @@ public class ItemApiExamples {
     firstPageItems.stream().forEach(ItemApiExamples::hasConsistentPermanentLocation);
     firstPageItems.stream().forEach(ItemApiExamples::hasConsistentTemporaryLocation);
 
-    secondPageItems.stream().forEach(ItemApiExamples::selfLinkRespectsWayResourceWasReached);
-    secondPageItems.stream().forEach(this::selfLinkShouldBeReachable);
     secondPageItems.stream().forEach(ItemApiExamples::hasConsistentMaterialType);
     secondPageItems.stream().forEach(ItemApiExamples::hasConsistentPermanentLoanType);
     secondPageItems.stream().forEach(ItemApiExamples::hasConsistentTemporaryLoanType);
+
     secondPageItems.stream().forEach(ItemApiExamples::hasStatus);
     secondPageItems.stream().forEach(ItemApiExamples::hasConsistentPermanentLocation);
     secondPageItems.stream().forEach(ItemApiExamples::hasConsistentTemporaryLocation);
@@ -740,8 +724,6 @@ public class ItemApiExamples {
     assertThat(firstItem.getString("title"), is("Long Way to a Small Angry Planet"));
     assertThat(firstItem.getJsonObject("status").getString("name"), is("Available"));
 
-    items.stream().forEach(ItemApiExamples::selfLinkRespectsWayResourceWasReached);
-    items.stream().forEach(this::selfLinkShouldBeReachable);
     items.stream().forEach(ItemApiExamples::hasConsistentMaterialType);
     items.stream().forEach(ItemApiExamples::hasConsistentPermanentLoanType);
     items.stream().forEach(ItemApiExamples::hasConsistentTemporaryLoanType);
@@ -899,30 +881,6 @@ public class ItemApiExamples {
 
     assertThat(getItemResponse.getStatusCode(), is(200));
     assertThat(getItemResponse.getJson().containsKey("barcode"), is(false));
-  }
-
-  private static void selfLinkRespectsWayResourceWasReached(JsonObject item) {
-    containsApiRoot(item.getJsonObject("links").getString("self"));
-  }
-
-  private static void containsApiRoot(String link) {
-    assertThat(link, containsString(ApiTestSuite.apiRoot()));
-  }
-
-  private void selfLinkShouldBeReachable(JsonObject item) {
-    try {
-      CompletableFuture<Response> getCompleted = new CompletableFuture<>();
-
-      okapiClient.get(item.getJsonObject("links").getString("self"),
-        ResponseHandler.json(getCompleted));
-
-      Response getResponse = getCompleted.get(5, TimeUnit.SECONDS);
-
-      assertThat(getResponse.getStatusCode(), is(200));
-    }
-    catch(Exception e) {
-      Assert.fail(e.toString());
-    }
   }
 
   private static void hasStatus(JsonObject item) {
