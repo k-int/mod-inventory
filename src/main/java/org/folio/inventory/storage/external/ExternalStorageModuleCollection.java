@@ -62,7 +62,7 @@ abstract class ExternalStorageModuleCollection<T> {
           resultCallback.accept(new Success<>(created));
         }
         else {
-          failureCallback.accept(new Failure(responseBody, statusCode));
+          failureCallback.accept(new Failure(responseBody, statusCode, ""));
         }
     });
 
@@ -85,6 +85,7 @@ abstract class ExternalStorageModuleCollection<T> {
       response -> response.bodyHandler(buffer -> {
         String responseBody = buffer.getString(0, buffer.length());
         int statusCode = response.statusCode();
+        String contentType = response.getHeader("Content-Type");
 
         switch (statusCode) {
           case 200:
@@ -100,7 +101,8 @@ abstract class ExternalStorageModuleCollection<T> {
             break;
 
           default:
-            failureCallback.accept(new Failure(responseBody, statusCode));
+            failureCallback.accept(new Failure(responseBody, statusCode,
+              contentType));
         }
     });
 
@@ -217,7 +219,7 @@ abstract class ExternalStorageModuleCollection<T> {
   private Handler<Throwable> exceptionHandler(
     Consumer<Failure> failureCallback) {
 
-    return it -> failureCallback.accept(new Failure(it.getMessage(), null));
+    return it -> failureCallback.accept(new Failure(it.getMessage(), null, ""));
   }
 
   private void jsonContentType(HttpClientRequest request) {
@@ -249,7 +251,7 @@ abstract class ExternalStorageModuleCollection<T> {
           completionCallback.accept(new Success<>(null));
         }
         else {
-          failureCallback.accept(new Failure(responseBody, statusCode));
+          failureCallback.accept(new Failure(responseBody, statusCode, ""));
         }
       });
   }
@@ -298,7 +300,7 @@ abstract class ExternalStorageModuleCollection<T> {
           resultCallback.accept(new Success<>(result));
         }
         else {
-          failureCallback.accept(new Failure(responseBody, statusCode));
+          failureCallback.accept(new Failure(responseBody, statusCode, ""));
         }
       });
   }

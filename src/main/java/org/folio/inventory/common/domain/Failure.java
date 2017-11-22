@@ -1,9 +1,18 @@
 package org.folio.inventory.common.domain;
 
 public class Failure {
-  public Failure(String reason, Integer statusCode) {
+  private final String reason;
+  private final Integer statusCode;
+  private final String contentType;
+
+  public Failure(
+    String reason,
+    Integer statusCode,
+    String contentType) {
+
     this.reason = reason;
     this.statusCode = statusCode;
+    this.contentType = contentType;
   }
 
   public final String getReason() {
@@ -14,6 +23,7 @@ public class Failure {
     return statusCode;
   }
 
-  private final String reason;
-  private final Integer statusCode;
+  public String getContentType() {
+    return contentType;
+  }
 }

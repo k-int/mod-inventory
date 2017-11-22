@@ -324,6 +324,8 @@ public class ApiTestSuite {
     Map<String, Object> config = new HashMap<>();
 
     config.put("http.port", INVENTORY_VERTICLE_TEST_PORT);
+    config.put("storage.type", "okapi");
+    config.put("storage.location", "");
 
     vertxAssistant.deployVerticle(RestVerticle.class.getName(), config,
       deployed);
@@ -336,17 +338,11 @@ public class ApiTestSuite {
 
     CompletableFuture<String> deployed = new CompletableFuture<>();
 
-    String storageType = "okapi";
-    String storageLocation = "";
-
-    System.out.println(String.format("Storage Type: %s", storageType));
-    System.out.println(String.format("Storage Location: %s", storageLocation));
-
     Map<String, Object> config = new HashMap<>();
 
     config.put("port", INVENTORY_VERTICLE_TEST_PORT);
-    config.put("storage.type", storageType);
-    config.put("storage.location", storageLocation);
+    config.put("storage.type", "okapi");
+    config.put("storage.location", "");
 
     vertxAssistant.deployVerticle(
       InventoryVerticle.class.getName(), config, deployed);

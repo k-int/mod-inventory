@@ -23,7 +23,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static api.support.InstanceSamples.*;
+import static api.support.ValidationErrorMatchers.errorFor;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.Assert.assertThat;
 
@@ -180,18 +182,33 @@ public class InstancesApiExamples {
     TimeoutException,
     ExecutionException {
 
-    JsonObject newInstanceRequest = new JsonObject();
+    JsonObject newInstanceRequest = new JsonObject()
+      .put("identifiers", new JsonArray().add(new JsonObject()
+        .put("identifierTypeId", ApiTestSuite.getIsbnIdentifierType())
+        .put("value", "9781473619777")))
+      .put("creators", new JsonArray().add(new JsonObject()
+        .put("creatorTypeId", ApiTestSuite.getPersonalCreatorType())
+        .put("name", "Chambers, Becky")))
+      .put("source", "Local")
+      .put("instanceTypeId", ApiTestSuite.getBooksInstanceType());
 
     CompletableFuture<Response> postCompleted = new CompletableFuture<>();
 
     okapiClient.post(ApiRoot.instances(),
-      newInstanceRequest, ResponseHandler.text(postCompleted));
+      newInstanceRequest, ResponseHandler.any(postCompleted));
 
     Response postResponse = postCompleted.get(5, TimeUnit.SECONDS);
 
-    assertThat(postResponse.getStatusCode(), is(400));
+    assertThat(postResponse.getStatusCode(), anyOf(is(400), is(422)));
     assertThat(postResponse.getLocation(), is(nullValue()));
-    assertThat(postResponse.getBody(), is("Title must be provided for an instance"));
+
+    if(postResponse.getStatusCode() == 422) {
+      assertThat(JsonArrayHelper.toList(postResponse.getJson().getJsonArray("errors")),
+        contains(errorFor("title", "may not be null")));
+    }
+    else {
+      assertThat(postResponse.getBody(), is("Title must be provided for an instance"));
+    }
   }
 
   @Test
@@ -412,14 +429,16 @@ public class InstancesApiExamples {
 
     CompletableFuture<Response> getPagedCompleted = new CompletableFuture<>();
 
+    //Response from RAML module builder does not supply a content type for error
     okapiClient.get(ApiRoot.instances("limit=&offset="),
-      ResponseHandler.text(getPagedCompleted));
+      ResponseHandler.any(getPagedCompleted));
 
     Response getPagedResponse = getPagedCompleted.get(5, TimeUnit.SECONDS);
 
     assertThat(getPagedResponse.getStatusCode(), is(400));
     assertThat(getPagedResponse.getBody(),
-      is("limit and offset must be numeric when supplied"));
+      anyOf(is("limit and offset must be numeric when supplied"),
+        is("offset does not have a default value in the RAML and has been passed empty")));
   }
 
   @Test
@@ -470,7 +489,6 @@ public class InstancesApiExamples {
   }
 
   private void hasCollectionProperties(List<JsonObject> instances) {
-
     instances.forEach(instance -> {
       assertThat(instance.containsKey("id"), is(true));
       assertThat(instance.containsKey("title"), is(true));

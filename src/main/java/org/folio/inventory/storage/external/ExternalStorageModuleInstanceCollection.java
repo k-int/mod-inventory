@@ -14,11 +14,11 @@ import java.util.stream.Collectors;
 
 import static org.folio.inventory.support.JsonArrayHelper.toList;
 
-class ExternalStorageModuleInstanceCollection
+public class ExternalStorageModuleInstanceCollection
   extends ExternalStorageModuleCollection<Instance>
   implements InstanceCollection {
 
-  ExternalStorageModuleInstanceCollection(
+  public ExternalStorageModuleInstanceCollection(
     Vertx vertx,
     String baseAddress,
     String tenant,
