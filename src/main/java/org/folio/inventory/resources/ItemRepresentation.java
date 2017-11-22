@@ -8,8 +8,8 @@ import org.folio.rest.jaxrs.model.*;
 import java.util.List;
 import java.util.Map;
 
-class ItemRepresentation {
-  JsonObject toJson(
+public class ItemRepresentation {
+  public JsonObject toJson(
     Item item,
     JsonObject materialType,
     JsonObject permanentLoanType,

@@ -518,9 +518,9 @@ public class Items {
           RELATIVE_ITEMS_PATH, success.getResult().getId()));
 
         respondWithItem(routingContext, success.getResult(), materialTypesClient
-          , loanTypesClient, locationsClient, representation ->
-            JsonResponse.created(routingContext.response(), representation,
-            location));
+          , loanTypesClient, locationsClient, representation -> {
+            JsonResponse.created(routingContext.response(), representation, location);
+          });
       } catch (MalformedURLException e) {
         log.warn(String.format("Failed to create self link for item: %s", e.toString()));
       }

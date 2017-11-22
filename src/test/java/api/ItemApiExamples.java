@@ -188,6 +188,7 @@ public class ItemApiExamples {
       .put("status", new JsonObject().put("name", "Available"))
       .put("materialType", bookMaterialType())
       .put("permanentLoanType", canCirculateLoanType())
+      .put("permanentLocation", permanentLocation())
       .put("temporaryLocation", temporaryLocation());
 
     CompletableFuture<Response> postCompleted = new CompletableFuture<>();
@@ -223,8 +224,8 @@ public class ItemApiExamples {
     JsonObject firstItemRequest = new JsonObject()
     .put("title", "Temeraire")
     .put("status", new JsonObject().put("name", "Available"))
-    .put("permanentLocation", permanentLocation())
     .put("materialType", bookMaterialType())
+    .put("permanentLocation", permanentLocation())
     .put("permanentLoanType", canCirculateLoanType());
 
     ItemApiClient.createItem(okapiClient, firstItemRequest);
@@ -233,6 +234,7 @@ public class ItemApiExamples {
       .put("title", "Nod")
       .put("status", new JsonObject().put("name", "Available"))
       .put("materialType", bookMaterialType())
+      .put("permanentLocation", permanentLocation())
       .put("permanentLoanType", canCirculateLoanType())
       .put("temporaryLocation", temporaryLocation());
 
@@ -332,7 +334,7 @@ public class ItemApiExamples {
       .put("status", new JsonObject().put("name", "Available"))
       .put("materialType", bookMaterialType())
       .put("permanentLoanType", canCirculateLoanType())
-      .put("temporaryLocation", temporaryLocation());
+      .put("permanentLocation", permanentLocation());
 
     CompletableFuture<Response> postCompleted = new CompletableFuture<>();
 
@@ -445,6 +447,7 @@ public class ItemApiExamples {
       .put("status", new JsonObject().put("name", "Available"))
       .put("materialType", bookMaterialType())
       .put("permanentLoanType", canCirculateLoanType())
+      .put("permanentLocation", permanentLocation())
       .put("temporaryLocation", temporaryLocation());
 
     CompletableFuture<Response> putCompleted = new CompletableFuture<>();
@@ -677,14 +680,16 @@ public class ItemApiExamples {
 
     CompletableFuture<Response> getPagedCompleted = new CompletableFuture<>();
 
+    //Response from RAML module builder does not supply a content type for error
     okapiClient.get(ApiRoot.items("limit=&offset="),
-      ResponseHandler.text(getPagedCompleted));
+      ResponseHandler.any(getPagedCompleted));
 
     Response getPagedResponse = getPagedCompleted.get(5, TimeUnit.SECONDS);
 
     assertThat(getPagedResponse.getStatusCode(), is(400));
     assertThat(getPagedResponse.getBody(),
-      is("limit and offset must be numeric when supplied"));
+      anyOf(is("limit and offset must be numeric when supplied"),
+        is("offset does not have a default value in the RAML and has been passed empty")));
   }
 
   @Test
@@ -755,6 +760,7 @@ public class ItemApiExamples {
       .put("barcode", "645398607547")
       .put("status", new JsonObject().put("name", "Available"))
       .put("materialType", bookMaterialType())
+      .put("permanentLoanType", canCirculateLoanType())
       .put("permanentLocation", permanentLocation());
 
     okapiClient.post(ApiRoot.items(), newItemRequest,
@@ -793,7 +799,7 @@ public class ItemApiExamples {
     CompletableFuture<Response> putItemCompleted = new CompletableFuture<>();
 
     okapiClient.put(nodItemLocation, changedNodItem,
-      ResponseHandler.text(putItemCompleted));
+      ResponseHandler.any(putItemCompleted));
 
     Response putItemResponse = putItemCompleted.get(5, TimeUnit.SECONDS);
 

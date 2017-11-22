@@ -7,11 +7,11 @@ import org.folio.rest.jaxrs.model.*;
 
 import java.util.UUID;
 
-class ExternalStorageModuleItemCollection
+public class ExternalStorageModuleItemCollection
   extends ExternalStorageModuleCollection<Item>
   implements ItemCollection {
 
-  ExternalStorageModuleItemCollection(Vertx vertx,
+  public ExternalStorageModuleItemCollection(Vertx vertx,
                                       String baseAddress,
                                       String tenant,
                                       String token) {
