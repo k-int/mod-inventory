@@ -102,6 +102,9 @@ resourceTypes:
                   application/json:
                     example: !include examples/ingest_status_get.json
                     schema: ingest-status
+              404:
+                body:
+                  text/plain:
               500:
                 body:
                   text/plain:

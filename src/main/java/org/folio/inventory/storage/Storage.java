@@ -14,7 +14,7 @@ import java.util.function.Function;
 public class Storage {
   private final Function<Context, CollectionProvider> providerFactory;
 
-  private Storage(final Function<Context, CollectionProvider> providerFactory) {
+  public Storage(final Function<Context, CollectionProvider> providerFactory) {
     this.providerFactory = providerFactory;
   }
 

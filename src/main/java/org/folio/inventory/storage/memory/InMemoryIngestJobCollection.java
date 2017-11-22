@@ -12,7 +12,13 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class InMemoryIngestJobCollection implements IngestJobCollection {
+  private static final InMemoryIngestJobCollection instance = new InMemoryIngestJobCollection();
+
   private final List<IngestJob> items = new ArrayList<>();
+
+  public static InMemoryIngestJobCollection getInstance() {
+    return instance;
+  }
 
   @Override
   public void empty(

@@ -32,6 +32,6 @@ public class ExternalStorageCollections implements CollectionProvider {
   @Override
   public IngestJobCollection getIngestJobCollection(String tenantId, String token) {
     //There is no external storage implementation for Jobs yet
-    return ingestJobCollection;
+    return InMemoryIngestJobCollection.getInstance();
   }
 }

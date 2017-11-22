@@ -9,6 +9,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.folio.inventory.common.WebContext;
 import org.folio.inventory.common.api.request.PagingParameters;
@@ -17,9 +18,13 @@ import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.inventory.common.domain.Success;
 import org.folio.inventory.domain.InstanceCollection;
 import org.folio.inventory.domain.ItemCollection;
-import org.folio.inventory.storage.external.CollectionResourceClient;
-import org.folio.inventory.storage.external.ExternalStorageModuleInstanceCollection;
-import org.folio.inventory.storage.external.ExternalStorageModuleItemCollection;
+import org.folio.inventory.domain.ingest.IngestMessages;
+import org.folio.inventory.parsing.ModsParser;
+import org.folio.inventory.parsing.UTF8LiteralCharacterEncoding;
+import org.folio.inventory.resources.ingest.IngestJob;
+import org.folio.inventory.resources.ingest.IngestJobState;
+import org.folio.inventory.storage.external.*;
+import org.folio.inventory.storage.memory.InMemoryIngestJobCollection;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
 import org.folio.inventory.support.http.client.Response;
 import org.folio.rest.jaxrs.model.*;
@@ -32,10 +37,7 @@ import java.io.UnsupportedEncodingException;
 import java.lang.invoke.MethodHandles;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -48,6 +50,8 @@ public class InventoryAPI implements InventoryResource {
 
   private static final String INSTANCES_PATH = "/inventory/instances";
   private static final String ITEMS_PATH = "/inventory/items";
+  private static final String MODS_INGEST_PATH = "/inventory/ingest/mods";
+
   private static final String ITEM_STORAGE_PATH = "/item-storage/items";
   private static final String INSTANCE_STORAGE_PATH = "/instance-storage/instances";
 
@@ -444,7 +448,151 @@ public class InventoryAPI implements InventoryResource {
     Handler<AsyncResult<javax.ws.rs.core.Response>> asyncResultHandler,
     Context vertxContext) throws Exception {
 
-    notImplemented(asyncResultHandler);
+    if(entity.getCount() > 1) {
+      respond(asyncResultHandler,
+        PostInventoryIngestModsResponse.withPlainBadRequest(
+          "Cannot parse multiple files in a single request"));
+      return;
+    }
+
+    OkapiHttpClient client;
+    ReferenceRecordClient materialTypesClient;
+    ReferenceRecordClient loanTypesClient;
+    ReferenceRecordClient locationsClient;
+    ReferenceRecordClient instanceTypesClient;
+    ReferenceRecordClient identifierTypesClient;
+    ReferenceRecordClient creatorTypesClient;
+
+    try {
+      client = createHttpClient(vertxContext, okapiHeaders);
+
+      materialTypesClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/material-types")), "mtypes");
+
+      loanTypesClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/loan-types")), "loantypes");
+
+      locationsClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/shelf-locations")), "shelflocations");
+
+      identifierTypesClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/identifier-types")), "identifierTypes");
+
+      instanceTypesClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/instance-types")), "instanceTypes");
+
+      creatorTypesClient = new ReferenceRecordClient(new CollectionResourceClient(client,
+        new URL(okapiHeaders.get(OKAPI_URL) + "/creator-types")), "creatorTypes");
+    }
+    catch (MalformedURLException e) {
+      respond(asyncResultHandler,
+        PostInventoryIngestModsResponse.withPlainInternalServerError(e.toString()));
+
+      return;
+    }
+
+    CompletableFuture<ReferenceRecord> materialTypesRequestCompleted;
+    CompletableFuture<ReferenceRecord> loanTypesRequestCompleted;
+    CompletableFuture<ReferenceRecord> locationsRequestCompleted;
+    CompletableFuture<ReferenceRecord> instanceTypesRequestCompleted;
+    CompletableFuture<ReferenceRecord> identifierTypesRequestCompleted;
+    CompletableFuture<ReferenceRecord> creatorTypesRequestCompleted;
+
+    try {
+      materialTypesRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, materialTypesClient.getRecord("Book"));
+
+      loanTypesRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, loanTypesClient.getRecord("Can Circulate"));
+
+      locationsRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, locationsClient.getRecord("Main Library"));
+
+      instanceTypesRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, instanceTypesClient.getRecord("Books"));
+
+      identifierTypesRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, identifierTypesClient.getRecord("ISBN"));
+
+      creatorTypesRequestCompleted = wrapWithExceptionHandler(
+        asyncResultHandler, creatorTypesClient.getRecord("Personal name"));
+
+    } catch (UnsupportedEncodingException e) {
+      String error = String.format("Failed to encode query: %s", e.toString());
+
+      log.error(error);
+      PostInventoryIngestModsResponse.withPlainInternalServerError(error);
+      return;
+    }
+
+    CompletableFuture.allOf(materialTypesRequestCompleted,
+      loanTypesRequestCompleted, locationsRequestCompleted,
+      instanceTypesRequestCompleted, identifierTypesRequestCompleted,
+      creatorTypesRequestCompleted)
+      .thenAccept(v -> {
+        ReferenceRecord bookMaterialType = materialTypesRequestCompleted.join();
+        ReferenceRecord canCirculateLoanType = loanTypesRequestCompleted.join();
+        ReferenceRecord mainLibraryLocation = locationsRequestCompleted.join();
+        ReferenceRecord booksInstanceType = instanceTypesRequestCompleted.join();
+        ReferenceRecord isbnIdentifierType = identifierTypesRequestCompleted.join();
+        ReferenceRecord personalCreatorType = creatorTypesRequestCompleted.join();
+
+        if(anyNull(bookMaterialType, canCirculateLoanType, booksInstanceType,
+          isbnIdentifierType, personalCreatorType)) {
+          return;
+        }
+
+        if(mainLibraryLocation == null) {
+          log.warn(
+            "Location for ingested records will be null, as could not find main library location");
+        }
+
+        try {
+          String fileContents = IOUtils.toString(entity
+            .getBodyPart(0).getInputStream());
+
+          List<JsonObject> records = new ModsParser(
+            new UTF8LiteralCharacterEncoding())
+            .parseRecords(fileContents);
+
+          InMemoryIngestJobCollection.getInstance()
+            .add(new IngestJob(IngestJobState.REQUESTED),
+              success -> {
+                try {
+                  WebContext context = new WebContext(routingContext);
+
+                  URL location = context.absoluteUrl(String.format("%s/status/%s",
+                    MODS_INGEST_PATH, success.getResult().id));
+
+                  IngestMessages.start(records,
+                    singleEntryMap(bookMaterialType),
+                    singleEntryMap(canCirculateLoanType),
+                    singleEntryMap(mainLibraryLocation),
+                    singleEntryMap(isbnIdentifierType),
+                    singleEntryMap(booksInstanceType),
+                    singleEntryMap(personalCreatorType),
+                    success.getResult().id, context).send(routingContext.vertx());
+
+                  respond(asyncResultHandler,
+                    PostInventoryIngestModsResponse.withAccepted(location.toString()));
+
+                } catch (MalformedURLException e) {
+                  String message = String.format(
+                    "Failed to create URL for location header: %s", e.toString());
+
+                  log.warn(message);
+                  respond(asyncResultHandler,
+                    PostInventoryIngestModsResponse.withPlainInternalServerError(message));
+                }
+              },
+              failure -> log.error("Creating Ingest Job failed")
+            );
+        } catch (Exception e) {
+          respond(asyncResultHandler,
+            PostInventoryIngestModsResponse.withPlainInternalServerError(
+            String.format("Unable to parse MODS file:%s", e.toString())));
+        }
+      });
   }
 
   @Override
@@ -454,7 +602,34 @@ public class InventoryAPI implements InventoryResource {
     Handler<AsyncResult<javax.ws.rs.core.Response>> asyncResultHandler,
     Context vertxContext) throws Exception {
 
-    notImplemented(asyncResultHandler);
+    InMemoryIngestJobCollection.getInstance()
+      .findById(id,
+        it -> {
+          if(it.getResult() == null) {
+            respond(asyncResultHandler,
+              GetInventoryIngestModsStatusByIdResponse.withPlainNotFound("Not Found"));
+
+            return;
+          }
+          IngestStatus.Status status = IngestStatus.Status.REQUESTED;
+
+          IngestJobState unmappedState = it.getResult().state;
+
+          if(unmappedState == IngestJobState.REQUESTED) {
+            status = IngestStatus.Status.REQUESTED;
+          }
+          else if(unmappedState == IngestJobState.IN_PROGRESS) {
+            status = IngestStatus.Status.IN_PROGRESS;
+          }
+          else if(unmappedState == IngestJobState.COMPLETED) {
+            status = IngestStatus.Status.COMPLETED;
+          }
+
+          respond(asyncResultHandler,
+            GetInventoryIngestModsStatusByIdResponse.withJsonOK(
+            new IngestStatus().withStatus(status)));
+        },
+        forwardFailureOn(asyncResultHandler));
   }
 
   private OkapiHttpClient createHttpClient(
@@ -491,17 +666,6 @@ public class InventoryAPI implements InventoryResource {
 
     return f -> asyncResultHandler.handle(Future.succeededFuture(
       convertResponseToJax(f)));
-  }
-
-  private void notImplemented(
-    Handler<AsyncResult<javax.ws.rs.core.Response>> asyncResultHandler) {
-
-    asyncResultHandler.handle(Future.succeededFuture(
-      javax.ws.rs.core.Response
-        .status(501)
-        .header(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
-        .entity("Not Implemented")
-        .build()));
   }
 
   private InstanceCollection getInstanceStorage(
@@ -967,6 +1131,30 @@ public class InventoryAPI implements InventoryResource {
         respond(asyncResultHandler,
           GetInventoryItemsResponse.withPlainInternalServerError(e.toString()));
       }
+    });
+  }
+
+  private Map<String, String> singleEntryMap(ReferenceRecord record) {
+    HashMap<String, String> map = new HashMap<>();
+
+    map.put(record.name, record.id);
+
+    return map;
+  }
+
+  private boolean anyNull(ReferenceRecord... records) {
+    return Stream.of(records).anyMatch(Objects::isNull);
+  }
+
+  private <T> CompletableFuture<T> wrapWithExceptionHandler(
+    Handler<AsyncResult<javax.ws.rs.core.Response>> asyncResultHandler,
+    CompletableFuture<T> future) {
+
+    return future.exceptionally(t -> {
+      respond(asyncResultHandler,
+        PostInventoryIngestModsResponse.withPlainInternalServerError(t.toString()));
+
+      return null;
     });
   }
 }
