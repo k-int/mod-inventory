@@ -19,6 +19,7 @@ import org.folio.inventory.storage.external.ReferenceRecord;
 import org.folio.inventory.storage.external.ReferenceRecordClient;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
 import org.folio.inventory.support.http.server.*;
+import org.folio.rest.jaxrs.model.IngestStatus;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.invoke.MethodHandles;
@@ -169,7 +170,7 @@ public class ModsIngestion {
                 .parseRecords(fileContents);
 
               storage.getIngestJobCollection(context)
-                .add(new IngestJob(IngestJobState.REQUESTED),
+                .add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
                   success -> {
                     IngestMessages.start(records,
                       singleEntryMap(bookMaterialType),
@@ -178,10 +179,10 @@ public class ModsIngestion {
                       singleEntryMap(isbnIdentifierType),
                       singleEntryMap(booksInstanceType),
                       singleEntryMap(personalCreatorType),
-                      success.getResult().id, context).send(routingContext.vertx());
+                      success.getResult().getId(), context).send(routingContext.vertx());
 
                     RedirectResponse.accepted(routingContext.response(),
-                      statusLocation(routingContext, success.getResult().id));
+                      statusLocation(routingContext, success.getResult().getId()));
                   },
                   failure -> log.error("Creating Ingest Job failed")
                 );
@@ -199,7 +200,9 @@ public class ModsIngestion {
     storage.getIngestJobCollection(context)
       .findById(routingContext.request().getParam("id"),
         it -> JsonResponse.success(routingContext.response(),
-          new JsonObject().put("status", it.getResult().state.toString())),
+          new JsonObject()
+            .put("id", it.getResult().getId())
+            .put("status", it.getResult().getStatus().toString())),
         FailureResponseConsumer.serverError(routingContext.response()));
   }
 

@@ -21,8 +21,6 @@ import org.folio.inventory.domain.ItemCollection;
 import org.folio.inventory.domain.ingest.IngestMessages;
 import org.folio.inventory.parsing.ModsParser;
 import org.folio.inventory.parsing.UTF8LiteralCharacterEncoding;
-import org.folio.inventory.resources.ingest.IngestJob;
-import org.folio.inventory.resources.ingest.IngestJobState;
 import org.folio.inventory.storage.external.*;
 import org.folio.inventory.storage.memory.InMemoryIngestJobCollection;
 import org.folio.inventory.support.http.client.OkapiHttpClient;
@@ -556,13 +554,13 @@ public class InventoryAPI implements InventoryResource {
             .parseRecords(fileContents);
 
           InMemoryIngestJobCollection.getInstance()
-            .add(new IngestJob(IngestJobState.REQUESTED),
+            .add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
               success -> {
                 try {
                   WebContext context = new WebContext(routingContext);
 
                   URL location = context.absoluteUrl(String.format("%s/status/%s",
-                    MODS_INGEST_PATH, success.getResult().id));
+                    MODS_INGEST_PATH, success.getResult().getId()));
 
                   IngestMessages.start(records,
                     singleEntryMap(bookMaterialType),
@@ -571,7 +569,8 @@ public class InventoryAPI implements InventoryResource {
                     singleEntryMap(isbnIdentifierType),
                     singleEntryMap(booksInstanceType),
                     singleEntryMap(personalCreatorType),
-                    success.getResult().id, context).send(routingContext.vertx());
+                    success.getResult().getId(), context)
+                    .send(routingContext.vertx());
 
                   respond(asyncResultHandler,
                     PostInventoryIngestModsResponse.withAccepted(location.toString()));
@@ -611,23 +610,9 @@ public class InventoryAPI implements InventoryResource {
 
             return;
           }
-          IngestStatus.Status status = IngestStatus.Status.REQUESTED;
-
-          IngestJobState unmappedState = it.getResult().state;
-
-          if(unmappedState == IngestJobState.REQUESTED) {
-            status = IngestStatus.Status.REQUESTED;
-          }
-          else if(unmappedState == IngestJobState.IN_PROGRESS) {
-            status = IngestStatus.Status.IN_PROGRESS;
-          }
-          else if(unmappedState == IngestJobState.COMPLETED) {
-            status = IngestStatus.Status.COMPLETED;
-          }
 
           respond(asyncResultHandler,
-            GetInventoryIngestModsStatusByIdResponse.withJsonOK(
-            new IngestStatus().withStatus(status)));
+            GetInventoryIngestModsStatusByIdResponse.withJsonOK(it.getResult()));
         },
         forwardFailureOn(asyncResultHandler));
   }

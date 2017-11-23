@@ -12,8 +12,6 @@ import org.folio.inventory.common.MessagingContext;
 import org.folio.inventory.domain.InstanceCollection;
 import org.folio.inventory.domain.ItemCollection;
 import org.folio.inventory.domain.Messages;
-import org.folio.inventory.resources.ingest.IngestJob;
-import org.folio.inventory.resources.ingest.IngestJobState;
 import org.folio.inventory.storage.Storage;
 import org.folio.inventory.support.JsonArrayHelper;
 import org.folio.rest.jaxrs.model.*;
@@ -131,7 +129,7 @@ public class IngestMessageProcessor {
     final MessagingContext context = new MessagingContext(message.headers());
 
     storage.getIngestJobCollection(context).update(
-      new IngestJob(context.getJobId(), IngestJobState.COMPLETED),
+      new IngestStatus().withId(context.getJobId()).withStatus(IngestStatus.Status.COMPLETED),
       v -> log.info(String.format("Ingest job %s completed", context.getJobId())),
       failure -> log.error(
         String.format("Updating ingest job failed: %s", failure.getReason())));

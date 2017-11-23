@@ -1,20 +1,25 @@
 package org.folio.inventory.storage.memory;
 
+import org.apache.commons.lang.StringUtils;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.Failure;
 import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.inventory.common.domain.Success;
 import org.folio.inventory.domain.ingest.IngestJobCollection;
-import org.folio.inventory.resources.ingest.IngestJob;
+import org.folio.rest.jaxrs.model.IngestStatus;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class InMemoryIngestJobCollection implements IngestJobCollection {
   private static final InMemoryIngestJobCollection instance = new InMemoryIngestJobCollection();
 
-  private final List<IngestJob> items = new ArrayList<>();
+  private final List<IngestStatus> items = new ArrayList<>();
 
   public static InMemoryIngestJobCollection getInstance() {
     return instance;
@@ -31,12 +36,12 @@ public class InMemoryIngestJobCollection implements IngestJobCollection {
 
   @Override
   public void add(
-    IngestJob item,
-    Consumer<Success<IngestJob>> resultCallback,
+    IngestStatus item,
+    Consumer<Success<IngestStatus>> resultCallback,
     Consumer<Failure> failureCallback) {
 
-    if(item.id == null) {
-      item = item.copyWithNewId(UUID.randomUUID().toString());
+    if(item.getId() == null) {
+      item.setId(UUID.randomUUID().toString());
     }
 
     items.add(item);
@@ -46,11 +51,11 @@ public class InMemoryIngestJobCollection implements IngestJobCollection {
   @Override
   public void findById(
     final String id,
-    Consumer<Success<IngestJob>> resultCallback,
+    Consumer<Success<IngestStatus>> resultCallback,
     Consumer<Failure> failureCallback) {
 
-    Optional<IngestJob> foundJob = items.stream()
-      .filter(it -> it.id.equals(id))
+    Optional<IngestStatus> foundJob = items.stream()
+      .filter(sameId(id))
       .findFirst();
 
     if(foundJob.isPresent()) {
@@ -64,12 +69,12 @@ public class InMemoryIngestJobCollection implements IngestJobCollection {
   @Override
   public void findAll(
     PagingParameters pagingParameters,
-    Consumer<Success<MultipleRecords<IngestJob>>> resultCallback,
+    Consumer<Success<MultipleRecords<IngestStatus>>> resultCallback,
     Consumer<Failure> failureCallback) {
 
     int totalRecords = items.size();
 
-    List<IngestJob> paged = items.stream()
+    List<IngestStatus> paged = items.stream()
       .skip(pagingParameters.offset)
       .limit(pagingParameters.limit)
       .collect(Collectors.toList());
@@ -79,11 +84,11 @@ public class InMemoryIngestJobCollection implements IngestJobCollection {
 
   @Override
   public void update(
-    final IngestJob ingestJob,
+    final IngestStatus ingestJob,
     Consumer<Success<Void>> completionCallback,
     Consumer<Failure> failureCallback) {
 
-    items.removeIf(it -> it.id.equals(ingestJob.id));
+    items.removeIf(sameId(ingestJob.getId()));
     items.add(ingestJob);
 
     completionCallback.accept(new Success<>(null));
@@ -95,7 +100,11 @@ public class InMemoryIngestJobCollection implements IngestJobCollection {
     Consumer<Success<Void>> completionCallback,
     Consumer<Failure> failureCallback) {
 
-    items.removeIf(it -> it.id.equals(id));
+    items.removeIf(sameId(id));
     completionCallback.accept(new Success<>(null));
+  }
+
+  private Predicate<IngestStatus> sameId(String id) {
+    return it -> StringUtils.equals(it.getId(), id);
   }
 }

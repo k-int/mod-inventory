@@ -3,8 +3,7 @@ package org.folio.inventory.storage.memory;
 import org.folio.inventory.common.api.request.PagingParameters;
 import org.folio.inventory.common.domain.MultipleRecords;
 import org.folio.inventory.common.domain.Success;
-import org.folio.inventory.resources.ingest.IngestJob;
-import org.folio.inventory.resources.ingest.IngestJobState;
+import org.folio.rest.jaxrs.model.IngestStatus;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -37,61 +36,63 @@ public class InMemoryIngestJobCollectionExamples {
   public void jobsCanBeAdded()
     throws InterruptedException, ExecutionException, TimeoutException {
 
-    CompletableFuture<IngestJob> addFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> addFuture = new CompletableFuture<>();
 
-    collection.add(new IngestJob(IngestJobState.REQUESTED),
+    collection.add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
       succeed(addFuture), fail(addFuture));
 
     waitForCompletion(addFuture);
 
-    CompletableFuture<MultipleRecords<IngestJob>> findFuture = new CompletableFuture<>();
+    CompletableFuture<MultipleRecords<IngestStatus>> findFuture = new CompletableFuture<>();
 
     collection.findAll(PagingParameters.defaults(), succeed(findFuture),
       fail(findFuture));
 
-    MultipleRecords<IngestJob> allJobsWrapped = getOnCompletion(findFuture);
+    MultipleRecords<IngestStatus> allJobsWrapped = getOnCompletion(findFuture);
 
-    List<IngestJob> allJobs = allJobsWrapped.records;
+    List<IngestStatus> allJobs = allJobsWrapped.records;
 
     assertThat(allJobs.size(), is(1));
 
-    allJobs.stream().forEach(job -> assertThat(job.id, is(notNullValue())));
-    allJobs.stream().forEach(job -> assertThat(job.state, is(IngestJobState.REQUESTED)));
+    allJobs.stream().forEach(job -> assertThat(job.getId(), is(notNullValue())));
+    allJobs.stream().forEach(job -> assertThat(job.getStatus(), is(IngestStatus.Status.REQUESTED)));
   }
 
   @Test
   public void jobsCanBeFoundById()
     throws InterruptedException, ExecutionException, TimeoutException {
 
-    CompletableFuture<IngestJob> addFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> addFuture = new CompletableFuture<>();
 
-    collection.add(new IngestJob(IngestJobState.REQUESTED),
+    collection.add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
       succeed(addFuture), fail(addFuture));
 
-    IngestJob added = getOnCompletion(addFuture);
+    IngestStatus added = getOnCompletion(addFuture);
 
-    CompletableFuture<IngestJob> findFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> findFuture = new CompletableFuture<>();
 
-    collection.findById(added.id, succeed(findFuture), fail(findFuture));
+    collection.findById(added.getId(), succeed(findFuture), fail(findFuture));
 
-    IngestJob found = getOnCompletion(findFuture);
+    IngestStatus found = getOnCompletion(findFuture);
 
-    assertThat(found.id, is(added.id));
-    assertThat(found.state, is(IngestJobState.REQUESTED));
+    assertThat(found.getId(), is(added.getId()));
+    assertThat(found.getStatus(), is(IngestStatus.Status.REQUESTED));
   }
 
   @Test
   public void jobStateCanBeUpdated()
     throws InterruptedException, ExecutionException, TimeoutException {
 
-    CompletableFuture<IngestJob> addFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> addFuture = new CompletableFuture<>();
 
-    collection.add(new IngestJob(IngestJobState.REQUESTED),
+    collection.add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
       succeed(addFuture), fail(addFuture));
 
-    IngestJob added = getOnCompletion(addFuture);
+    IngestStatus added = getOnCompletion(addFuture);
 
-    IngestJob completed = added.complete();
+    IngestStatus completed = new IngestStatus()
+      .withId(added.getId())
+      .withStatus(IngestStatus.Status.COMPLETED);
 
     CompletableFuture<Void> updateFuture = new CompletableFuture<>();
 
@@ -100,27 +101,29 @@ public class InMemoryIngestJobCollectionExamples {
 
     waitForCompletion(updateFuture);
 
-    CompletableFuture<IngestJob> findFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> findFuture = new CompletableFuture<>();
 
-    collection.findById(added.id, succeed(findFuture), fail(findFuture));
+    collection.findById(added.getId(), succeed(findFuture), fail(findFuture));
 
-    IngestJob found = getOnCompletion(findFuture);
+    IngestStatus found = getOnCompletion(findFuture);
 
-    assertThat(found.state, is(IngestJobState.COMPLETED));
+    assertThat(found.getStatus(), is(IngestStatus.Status.COMPLETED));
   }
 
   @Test
   public void singleJobWithSameIdFollowingUpdate()
     throws InterruptedException, ExecutionException, TimeoutException {
 
-    CompletableFuture<IngestJob> addFuture = new CompletableFuture<>();
+    CompletableFuture<IngestStatus> addFuture = new CompletableFuture<>();
 
-    collection.add(new IngestJob(IngestJobState.REQUESTED),
+    collection.add(new IngestStatus().withStatus(IngestStatus.Status.REQUESTED),
       succeed(addFuture), fail(addFuture));
 
-    IngestJob added = getOnCompletion(addFuture);
+    IngestStatus added = getOnCompletion(addFuture);
 
-    IngestJob completed = added.complete();
+    IngestStatus completed = new IngestStatus()
+      .withId(added.getId())
+      .withStatus(IngestStatus.Status.COMPLETED);
 
     CompletableFuture<Void> updateFuture = new CompletableFuture<>();
 
@@ -128,16 +131,16 @@ public class InMemoryIngestJobCollectionExamples {
 
     waitForCompletion(updateFuture);
 
-    CompletableFuture<MultipleRecords<IngestJob>> findAllFuture = new CompletableFuture<>();
+    CompletableFuture<MultipleRecords<IngestStatus>> findAllFuture = new CompletableFuture<>();
 
     collection.findAll(PagingParameters.defaults(), succeed(findAllFuture),
       fail(findAllFuture));
 
-    MultipleRecords<IngestJob> allJobsWrapped = getOnCompletion(findAllFuture);
+    MultipleRecords<IngestStatus> allJobsWrapped = getOnCompletion(findAllFuture);
 
-    List<IngestJob> allJobs = allJobsWrapped.records;
+    List<IngestStatus> allJobs = allJobsWrapped.records;
 
     assertThat(allJobs.size(), is(1));
-    assertThat(allJobs.stream().findFirst().get().id, is(added.id));
+    assertThat(allJobs.stream().findFirst().get().getId(), is(added.getId()));
   }
 }

@@ -1,5 +1,6 @@
 ## 6.0.0 Unreleased
 
+* Ingest job status includes `id` property (MODINV-16)
 * Responses to POST include representation (MODINV-16)
 * Removes Dublin Core context from instances (MODINV-16)
 * Removes `links` property from `instance` and `item` record (MODINV-16) 
